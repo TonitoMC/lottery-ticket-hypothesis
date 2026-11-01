@@ -1,0 +1,510 @@
+\documentclass[11pt]{article}
+
+\usepackage[spanish]{babel}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb, amsfonts}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{tcolorbox}
+\usepackage[hidelinks]{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{parskip}
+\usepackage{pgfplots}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[backend=biber,style=numeric,sorting=none]{biblatex}
+\addbibresource{referencias.bib}
+
+\usetikzlibrary{arrows.meta}
+\pgfplotsset{compat=1.18}
+
+\lstset{
+  language=Python,
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  columns=flexible,
+  keepspaces=true,
+  commentstyle=\color{gray}\itshape,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  stringstyle=\color{green!40!black},
+  frame=L,
+  xleftmargin=2em,
+  showstringspaces=false,
+  tabsize=4
+}
+
+\graphicspath{{figures/}}
+
+% Pendiente del autor (naranja), borrador de interpretación (azul) y material generado por IA (morado)
+\newtcolorbox{pendiente}{colback=orange!8,colframe=orange!70!black,title={Por completar},fonttitle=\bfseries\small,boxrule=0.6pt,left=4pt,right=4pt,top=2pt,bottom=2pt}
+\newtcolorbox{borrador}{colback=blue!4,colframe=blue!40!black,title={Borrador de interpretación (editar)},fonttitle=\bfseries\small,boxrule=0.6pt,left=4pt,right=4pt,top=2pt,bottom=2pt}
+\newtcolorbox{generadoia}{colback=violet!5,colframe=violet!60!black,title={Generado con IA},fonttitle=\bfseries\small,boxrule=0.6pt,left=4pt,right=4pt,top=2pt,bottom=2pt}
+
+\title{\textbf{Lottery Ticket Hypothesis}\\[0.4em]
+  \textbf{\large Rewinding y alcance de la poda en MLP, CNN, ResNet y ViT}\\[1.2em]
+  \large Deep Learning y Sistemas Inteligentes - CC3092\\[0.3em]
+  \large Proyecto Final}
+\author{José Antonio Mérida Castejón}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+La \textit{Lottery Ticket Hypothesis} (LTH) afirma que dentro de una red neuronal grande existe una subred pequeña que, entrenada desde sus mismos pesos iniciales, alcanza una accuracy comparable a la de la red completa. Este proyecto la reproduce y la pone a prueba en cuatro arquitecturas de complejidad creciente (MLP, CNN, ResNet de 20 capas y un ViT pequeño, la que se estudió con más profundidad) con tres preguntas: (1) ¿existen \textit{winning tickets} en cada arquitectura?, (2) ¿a medida que la red es más compleja hace falta rebobinar (\textit{rewinding}) los pesos a un punto posterior del entrenamiento, y qué papel puede jugar el \textit{warmup}?, y (3) ¿importa podar por capa o globalmente? Se encontraron tickets en las cuatro arquitecturas (en la ResNet solo con rewinding); la necesidad de rebobinar es compatible con la complejidad de la red, pero está confundida con el \textit{warmup} y el optimizador, por lo que no se puede atribuir a la arquitectura; y el tipo de poda cambió el resultado de la CNN, el caso donde se comparó directamente: con poda por capa el ticket colapsa con 10.7\% de los pesos (53.0\% frente a 61.2\% del control aleatorio) y con poda global no (75.7\% frente a 69.4\%), porque la poda por capa obliga a las capas pequeñas, cuyos pesos son los más grandes, a perder tanto como las grandes. Que las redes más grandes necesiten poda global es consistente con esto pero no se probó. Todos los experimentos son de una sola semilla.
+\end{abstract}
+
+\begin{pendiente}
+Datos del curso (universidad, catedrático, fecha de entrega), integrantes del grupo, enlace al repositorio público y enlace al video. La instrucción pide repositorio público, video del funcionamiento y presentación de máximo 10 diapositivas.
+\end{pendiente}
+
+\tableofcontents
+\newpage
+
+%% ======================================================================
+\section{Descripción del problema}
+\subsection{Contexto}
+Las redes neuronales modernas tienen millones de parámetros, pero la mayoría resulta prescindible: tras el entrenamiento se pueden eliminar (\textit{podar}) hasta el 90\% de los pesos de menor magnitud con poca pérdida de accuracy. Eso reduce memoria y cómputo en inferencia y tiene aplicación directa en la industria (modelos para dispositivos móviles y embebidos, menor costo energético) y en la academia (qué información realmente usa una red). Sin embargo, la poda tradicional se aplica a una red \textit{ya entrenada}: no reduce el costo de entrenarla. Frankle y Carbin \cite{frankle2019lth} mostraron que existe una alternativa: si la subred podada se reentrena \textit{desde la misma inicialización} de la red original, alcanza una accuracy igual o mayor. A esa subred la llaman \textit{winning ticket}.
+
+\subsection{Problema}
+El resultado original se obtuvo en redes pequeñas (LeNet-300-100, Conv-2/4/6). En redes más profundas, regresar los pesos a la inicialización deja de funcionar con el \textit{learning rate} estándar, y es necesario rebobinar a una iteración temprana del entrenamiento \cite{frankle2019stabilizing}. Esto plantea la pregunta central del proyecto:
+
+\begin{quote}
+\textit{¿Cómo cambia la existencia de los tickets, y lo que hay que hacer para encontrarlos, al pasar de arquitecturas simples a arquitecturas más complejas (MLP, CNN, ResNet, ViT)? ¿Y qué decisiones del procedimiento de poda cambian ese resultado?}
+\end{quote}
+
+\subsection{Hipótesis}
+Se formulan cuatro hipótesis, de las que el proyecto prueba unas directamente y otras solo de forma observacional:
+
+\begin{description}[style=nextline,leftmargin=1.2em]
+\item[H0 -- Existencia.] En cada arquitectura existe una subred con pocos pesos que, desde su inicialización (o desde un punto de rewind), iguala o supera a la red densa y supera a la \textit{misma máscara con pesos nuevos} (control aleatorio). \textit{Prueba directa:} las curvas de accuracy contra pesos restantes.
+\item[H1 -- Complejidad y rewinding.] Mientras más compleja es la red, más tarde en el entrenamiento aparece el ticket: el MLP y la CNN no necesitan rebobinar, la ResNet sí, y el ViT también. \textit{Prueba parcial:} se compara ticket desde $\theta_0$ contra ticket con rewinding en cada arquitectura, pero con uno o dos puntos de rewind por arquitectura; no se barre el punto de rewind $k$.
+\item[H2 -- Warmup.] El \textit{warmup} del \textit{learning rate} cumple una función parecida al rewinding (evitar el arranque inestable), por lo que una arquitectura con warmup necesita rebobinar menos. \textit{Prueba observacional, no directa:} la ResNet se entrenó sin warmup y el ViT con warmup, pero el warmup no se manipuló de forma controlada. Está confundido con el optimizador (SGD frente a AdamW), los datos y el tamaño de la red.
+\item[H3a -- Alcance de la poda (CNN).] La poda \textit{global} (un solo umbral de magnitud para toda la red) funciona mejor que la poda \textit{por capa} (20\% de cada capa) porque no obliga a las capas pequeñas a perder la misma fracción que las grandes. \textit{Prueba directa:} el experimento 02b repite el 02 cambiando únicamente el alcance de la poda.
+\item[H3b -- Redes más grandes necesitan poda global.] A medida que la red crece (más capas, y de tamaños muy distintos), la poda por capa se vuelve más dañina porque las capas pequeñas se convierten en un cuello de botella. \textit{No probada:} ResNet y ViT se podaron solo de forma global; la CNN es el único caso con ambas variantes.
+\end{description}
+
+\subsection{Objetivos}
+\begin{enumerate}[nosep]
+    \item Implementar poda iterativa por magnitud (IMP) con rewinding y control aleatorio, reutilizable en las cuatro arquitecturas.
+    \item Medir accuracy contra porcentaje de pesos restantes en cada arquitectura y para cada variante (ticket, ticket con rewinding, aleatorio).
+    \item Inspeccionar \textit{qué} encontró la poda (pesos vivos por capa, máscaras, atención, gradientes), no solo cuánta accuracy queda.
+    \item Documentar con honestidad qué se puede y qué no se puede concluir con los datos obtenidos.
+\end{enumerate}
+
+%% ======================================================================
+\section{Análisis}
+\subsection{Poda iterativa por magnitud y definición de ticket}
+IMP repite el siguiente ciclo (Figura~\ref{fig:arch}, parte inferior): (1) se entrena la red con la máscara actual; (2) se elimina una fracción $p$ de los pesos vivos de menor magnitud $|w|$; (3) los pesos sobrevivientes se regresan a un valor de referencia; (4) se vuelve a entrenar. Con $p=20\%$, tras $n$ rondas quedan $0.8^n$ de los pesos (10.7\% tras 10 rondas); con $p=35\%$ en el ViT, $0.65^n$.
+
+El valor de referencia define el método: la inicialización $\theta_0$ (ticket clásico \cite{frankle2019lth}) o el valor tras $k$ épocas de entrenamiento denso $\theta_k$ (rewinding \cite{frankle2019stabilizing}). Para saber si el resultado es mérito de la \textit{estructura} o de los \textit{valores iniciales}, se usa un control: la misma máscara con pesos reinicializados al azar. Si el ticket supera al control, los valores iniciales importan.
+
+\subsection{Qué se espera ver y cómo se decide}
+\begin{itemize}[nosep]
+    \item \textbf{Existencia (H0):} la curva del ticket se mantiene a menos de 1 punto de la red densa o por encima, y por encima de la curva aleatoria con un margen mayor al ruido.
+    \item \textbf{Rewinding (H1):} si el ticket desde $\theta_0$ no supera al control pero el ticket rebobinado sí, hace falta rebobinar.
+    \item \textbf{Alcance de la poda (H3):} si la caída del ticket a poca densidad desaparece al cambiar de poda por capa a poda global con todo lo demás igual.
+\end{itemize}
+
+\subsection{Alcance de la poda: por qué podría importar}
+En la poda \textit{por capa} cada capa pierde exactamente la misma fracción. Las capas pequeñas (como la primera convolución, con 1,728 pesos) quedan con muy pocos pesos en términos absolutos, mientras que las capas grandes (la primera capa lineal de la CNN tiene 2.1~M pesos, el 86\% del total) pierden en proporción lo mismo aunque sean redundantes. La poda \textit{global} compara las magnitudes de todos los pesos con un único umbral, de modo que cada capa conserva lo que su magnitud justifica. El riesgo opuesto es que una capa se quede sin pesos (\textit{layer collapse}); aquí se mide con filtros y neuronas completamente vacíos.
+
+\subsection{Rewinding y warmup}
+Frankle et~al.\ \cite{frankle2019stabilizing} muestran que en ResNet-18 y VGG-19 con \textit{learning rate} 0.1 el ticket desde $\theta_0$ no es mejor que la reinicialización, pero rebobinar a una iteración temprana (cientos de iteraciones) sí lo es. Frankle y Carbin \cite{frankle2019lth} (apéndice) reportan que en esas redes aparecen tickets con un \textit{learning rate} menor o con warmup largo. Esto sugiere que el rewinding y el warmup atacan el mismo problema: el arranque del entrenamiento con un \textit{learning rate} alto es inestable y los pesos iniciales aún no están en una región donde la máscara sea estable. Esta es la base de H2; en este proyecto no se manipuló el warmup, solo se observó su coincidencia con la necesidad de rewinding en cada arquitectura (Sección~\ref{sec:h2}).
+
+\subsection{Trabajo relacionado y límites de la comparación}
+Para los ViT, Shen et~al.\ \cite{shen2023dlth} reportan que los tickets a nivel de peso son difíciles de encontrar en DeiT-Small con ImageNet; el ViT de este proyecto es pequeño y se entrena en CIFAR-10, así que sus resultados no son comparables directamente. Renda et~al.\ \cite{renda2020} comparan el rewinding con el ajuste fino tras la poda; aquí solo se toma su receta (SGD con \textit{weight decay} en ResNets de CIFAR-10) como referencia. El recipe de entrenamiento del ViT sigue las pautas de DeiT \cite{touvron2021deit} (AdamW, \textit{weight decay} 0.05, warmup), con las desviaciones del Apéndice~\ref{app:desv}.
+
+%% ======================================================================
+\section{Propuesta de solución}
+Para contestar las preguntas se diseñó una serie de experimentos que comparten el mismo código de poda (\texttt{lth.py}) y varían la arquitectura, el punto de rewind y el alcance de la poda. Cada experimento mide las tres curvas de la Sección~2.1 (ticket, ticket con rewinding, control aleatorio) contra el porcentaje de pesos restantes.
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}llllll@{}}
+\toprule
+Exp. & Arquitectura / datos & Poda & Rewind & Hipótesis que prueba & Epochs/ronda \\
+\midrule
+01 & MLP LeNet-300-100 / MNIST & capa & -- & H0 & 5 \\
+02 & CNN Conv-4 / CIFAR-10 & capa & -- & H0, H3 (línea base) & 30 \\
+02b & CNN Conv-4 / CIFAR-10 & \textbf{global} & -- & \textbf{H3} & 30 \\
+03 & ResNet de 20 capas / CIFAR-10 & global & época 1 & H0, H1, (H2) & 77 \\
+04 & ViT pequeño / CIFAR-10 & global & época 2 & H0, H1, (H2) & 20 \\
+05 & ViT, entrenamiento largo & global & época 5 & H0, H1, (H2); validar el baseline & 100 \\
+06 & Inspección de los checkpoints de 05 & -- & -- & qué encontró la poda & -- \\
+\bottomrule
+\end{tabular}
+\caption{Matriz de experimentos. (H2) indica que el warmup solo se observa, no se manipula.}
+\end{table}
+
+\paragraph{Enfoque del estudio.} El proyecto no estudia las cuatro arquitecturas con la misma profundidad. El \textbf{ViT} es la arquitectura a la que se dedicó más trabajo: dos corridas (20 y 100 épocas) con las tres curvas, validación de su baseline y la inspección completa de los checkpoints (pesos vivos por capa, accuracy por clase, atención, entropía y gradientes). La \textbf{CNN} es el caso donde se comparó directamente la poda por capa y la global, con inspección de máscaras. El MLP y la ResNet sirven como puntos de referencia (una corrida cada uno, la ResNet con rewinding).
+
+\paragraph{Cambios deliberados entre experimentos.} 02b cambia \textit{solo} el alcance de la poda respecto a 02. 05 repite 04 con 100 épocas, más aumento de datos y \textit{label smoothing} porque el baseline de 04 (78.9\%) parecía subentrenado y eso podría explicar que el ticket superara a la red densa. El ViT se mide dos veces (04 y 05) para separar el efecto de la poda del de un mal baseline.
+
+\paragraph{Criterios de calidad.} Cada curva se compara con la accuracy de su red densa y con el control aleatorio; la inspección de las máscaras y de las redes sirve para explicar las diferencias, no para reemplazar la medición. Se declara explícitamente que una sola semilla y ~10,000 imágenes de prueba permiten distinguir diferencias de unos 5 puntos, pero no de 1 punto o menos.
+
+%% ======================================================================
+\section{Descripción de la solución}
+\subsection{Arquitecturas}
+La Figura~\ref{fig:arch} muestra las cuatro redes y el ciclo de IMP.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{arch.pdf}
+\caption{Arquitecturas usadas (forma de los tensores y pesos podables por capa) y ciclo de IMP.}
+\label{fig:arch}
+\end{figure}
+
+\begin{description}[leftmargin=1.2em]
+\item[MLP (LeNet-300-100).] $784\to300\to100\to10$ con ReLU; 266k pesos podables.
+\item[CNN (Conv-4).] Cuatro convoluciones $3\times3$ (64, 64, 128, 128 filtros) con \textit{max-pooling} y tres capas lineales; 2.4M pesos, el 86\% en la primera capa lineal ($8192\to256$).
+\item[ResNet de 20 capas.] Arquitectura del apéndice I.3 de \cite{frankle2019lth}: convolución inicial más 9 bloques residuales en tres etapas de 16, 32 y 64 canales, con atajos convolucionales $1\times1$ cuando cambian las dimensiones; 270k pesos convolucionales.
+\item[ViT pequeño.] Parches de $4\times4$ (64 tokens más \texttt{[CLS]}), dimensión 192, 6 bloques de atención con 3 cabezas y MLP de 384; 1.8M pesos podables. Todas las capas lineales y las LayerNorm entran en la poda global.
+\end{description}
+
+\subsection{Implementación}
+Los cuatro modelos, los ciclos de entrenamiento y evaluación y el módulo de poda \texttt{lth.py} fueron escritos por el autor en PyTorch; el guardado de checkpoints y la mayor parte de los cuadernos de experimentos los implementó la IA (Sección~5.2). El módulo \texttt{lth.py} contiene:
+\begin{itemize}[nosep]
+    \item \texttt{run\_imp}: bucle de IMP con alcance \texttt{"layer"} o \texttt{"global"}, ritmo de poda configurable, rewind a la época $k$ y guardado de cada ronda;
+    \item \texttt{run\_lth}: ejecuta las tres curvas (ticket, ticket con rewinding, control aleatorio con la misma máscara y otra inicialización);
+    \item \texttt{save\_base}, \texttt{save\_round} / \texttt{list\_checkpoints} (implementados con IA): guardan pesos y máscaras de cada ronda para poder inspeccionarlos después sin reentrenar.
+\end{itemize}
+Los experimentos son cuadernos \texttt{marimo} guardados como \texttt{.py} (reactivos y versionables), exportables a HTML. La inspección (06), la comparación (05) y el reporte (07) leen los resultados guardados; la demo interactiva (08) usa los checkpoints para comparar modelos densos, tickets y controles sobre una imagen elegida.
+
+\subsection{Hiperparámetros}
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}lllllll@{}}
+\toprule
+ & MLP & CNN & ResNet & ViT (04) & ViT largo (05) \\
+\midrule
+Optimizador & Adam 1.2e-3 & Adam 3e-4 & SGD 0.1, mom.\ 0.9 & AdamW 1e-3, wd 0.05 & igual \\
+Aumento de datos & no & no & flip + crop & flip + crop & + RandAugment, erasing, mixup/cutmix, LS \\
+Poda por ronda & 20\% capa & 20\% capa / global & 20\% global (solo conv.) & 35\% global & 35\% global \\
+Rondas & 15 & 10 & 10 & 8 & 8 \\
+Warmup & no & no & no & 2 ép.\ + coseno & 5 ép.\ + coseno \\
+\bottomrule
+\end{tabular}
+\caption{Configuración de cada experimento (LS = \textit{label smoothing}). Las desviaciones respecto a las fuentes están en el Apéndice~\ref{app:desv}.}
+\end{table}
+
+\subsection{Reproducibilidad y costo}
+Entorno gestionado con \texttt{uv} (\texttt{uv.lock}); una sola semilla por experimento y entrenamiento en GPU (no determinista). Todo el proyecto usó unas 10 horas de GPU (RTX 4070 SUPER, ~4~kWh). Las figuras y tablas de este informe se generan con \texttt{report/make\_figures.py} a partir de \texttt{results/} y \texttt{checkpoints/}.
+
+%% ======================================================================
+\section{Herramientas aplicadas}
+\subsection{Herramientas}
+\begin{itemize}[nosep]
+    \item \textbf{PyTorch / torchvision}: modelos, entrenamiento y datasets (MNIST, CIFAR-10).
+    \item \textbf{marimo}: cuadernos reactivos guardados como \texttt{.py}, exportables a HTML. Es una herramienta nueva para este curso (a diferencia de Jupyter, el orden de ejecución lo determina el grafo de dependencias entre celdas y el archivo es código normal, apto para git).
+    \item \textbf{uv}: gestor de entornos reproducibles de Python.
+    \item \textbf{Claude Code}: asistente de IA en la terminal, usado para leer el repositorio, ejecutar corridas, generar figuras de inspección y redactar borradores de análisis.
+    \item \textbf{matplotlib}: figuras (el código de las figuras de inspección fue generado con ayuda de IA).
+    \item \textbf{\LaTeX}: este informe; las figuras y tablas numéricas se generan por script.
+\end{itemize}
+
+\subsection{Uso de IA generativa: prompts y evolución de la idea}
+\begin{pendiente}
+Esta sección es obligatoria según la instrucción del proyecto. Falta el \textbf{historial de prompts más relevantes}, indicando para cada uno si el resultado fue satisfactorio o presentó errores, por qué se cree que ocurrió, y cómo se evaluó la respuesta. Abajo hay la estructura y los prompts de los que ya hay registro; completar con los de las sesiones anteriores.
+\end{pendiente}
+
+\paragraph{Reparto del trabajo.} \textbf{Del autor:} el tema, la pregunta y las hipótesis; los cuatro modelos (\texttt{nn.Module}); los ciclos de entrenamiento y evaluación; el código de poda \texttt{lth.py} (máscaras, IMP, control aleatorio); y ejecutar y verificar los experimentos. \textbf{De la IA (Claude, mediante Claude Code):} el guardado de pesos y máscaras (checkpoints); la implementación de la mayor parte de los cuadernos de experimentos, cuyas partes centrales el autor sabía correctas y revisó; las visualizaciones, los diagramas de arquitectura y las tablas automáticas; la revisión de código e hiperparámetros contra las fuentes; borradores de interpretación y las preguntas de discusión de la Sección~7.3 (marcadas como generadas con IA); y la estructura del informe y de la presentación.
+
+\paragraph{Prompts de los que hay registro.}
+\begin{itemize}[nosep]
+    \item \textit{``Can these models be exported so I can run experiments on them? Using masks to see how they turn out.''} $\rightarrow$ origen del guardado de checkpoints (\texttt{save\_round}) y del cuaderno de inspección.
+    \item \textit{``I wanna handpick from results to see what changes… also saving \% of original params.''} $\rightarrow$ checkpoints por ronda con el porcentaje de pesos en el nombre.
+    \item \textit{``ViT longer has to have more epochs + maybe more aggressive data augmentation.''} $\rightarrow$ experimento 05.
+\end{itemize}
+
+\begin{pendiente}
+Tabla del historial de prompts (prompt, qué se obtuvo, ¿satisfactorio?, por qué, cómo se validó). Dos ejemplos concretos del proyecto que se pueden desarrollar: (1) la primera corrida del ViT denso largo se descartó y repitió (\texttt{vit\_longer\_dense\_first\_attempt.log}); (2) el reporte afirmaba una explicación causal del colapso de la CNN que solo se pudo confirmar al correr 02b, y por eso se redactó como \textit{posible, no probada} hasta entonces.
+\end{pendiente}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}p{0.34\linewidth}p{0.22\linewidth}p{0.36\linewidth}@{}}
+\toprule
+Prompt (resumen) & Resultado & Evaluación y por qué \\
+\midrule
+\textit{[completar]} & \textit{[completar]} & \textit{[completar]} \\
+\textit{[completar]} & \textit{[completar]} & \textit{[completar]} \\
+\bottomrule
+\end{tabular}
+\caption{Historial de prompts relevantes (plantilla).}
+\end{table}
+
+\paragraph{Evaluación crítica de la IA.} Todo número que aparece en el informe viene de \texttt{results/*.json} o de los checkpoints; los textos de interpretación redactados con ayuda de IA se marcan como \textit{borrador} y se contrastan con los datos antes de aceptarlos. Se identificaron como riesgos: explicaciones causales presentadas con más certeza que la que los datos permiten (por ejemplo, atribuir resultados a la regularización o al warmup sin experimento que los separe) y figuras que se ven bien sin que demuestren lo que parecen demostrar (los mapas de atención). Por ello cada afirmación causal del informe indica qué experimento la probaría.
+
+%% ======================================================================
+\section{Resultados}
+\subsection{H0: existencia de tickets}
+La Figura~\ref{fig:curves} muestra las curvas de todas las corridas y la Tabla~\ref{tab:summary} las resume. Las tres curvas son: ticket desde $\theta_0$ (azul), ticket con rewinding (verde) y reinicialización aleatoria de la misma máscara (naranja punteada).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{curves.pdf}
+\caption{Accuracy de prueba contra porcentaje de pesos restantes (eje $x$ logarítmico e invertido: la red se hace más pequeña hacia la derecha).}
+\label{fig:curves}
+\end{figure}
+
+\begin{table}[H]
+\centering\footnotesize
+\input{figures/table_summary.tex}
+\caption{Resumen. ``Mín.\ pesos'': la red más pequeña a menos de 1 punto de la accuracy densa. ``Ventaja del ticket'': diferencia promedio entre el ticket y el control aleatorio sobre las rondas podadas. ``Ganancia del rewind'': diferencia promedio entre el ticket con rewinding y el clásico.}
+\label{tab:summary}
+\end{table}
+
+\paragraph{MLP / MNIST.} El ticket se mantiene entre 97.2\% y 98.2\% hasta 3.5\% de los pesos, a la par de la red densa (97.7\%), mientras que la reinicialización aleatoria cae a 95.7\%. No se probó el rewinding. En la primera capa, 128 de los 784 píxeles de entrada quedan sin ningún peso (el borde de la imagen), lo cual es esperable porque los píxeles que siempre valen 0 no reciben gradiente.
+
+\paragraph{CNN / CIFAR-10.} Con poda por capa el ticket supera a la red densa (73.0\%) hasta con 26\% de los pesos, con un máximo de 77.2\% con 33--41\%, y supera al control hasta con 21\%; por debajo de eso cae a 61.4\% con 16.8\%, 62.6\% con 13.4\% y 53.0\% con 10.7\%, por debajo del control en 16.8\% y 10.7\% (ver Sección~\ref{sec:h3}). Con poda global el ticket se mantiene entre 73.6\% y 76.9\%, a la par o por encima de la red densa (74.0\%) en todo el rango y por encima del control desde 64\% de los pesos.
+
+\paragraph{ResNet / CIFAR-10.} Con \textit{learning rate} 0.1 el ticket desde $\theta_0$ \textbf{no} supera al control (86.3\% frente a 86.5\% con 10.7\% de los pesos), igual que en \cite{frankle2019stabilizing}. Rebobinar a la época 1 recupera casi toda la accuracy: 89.6\% con 10.7\% de los pesos (red densa: 90.9\%).
+
+\paragraph{ViT / CIFAR-10.} Con 20 épocas el ticket queda en 82--83\% de 42\% a 7.5\% de los pesos, por encima de la red densa (78.9\%); el control cae a 65.9\% con 3.2\%. El baseline probablemente está subentrenado, motivo del experimento 05.
+
+\subsection{ViT con entrenamiento largo: ¿era un mal baseline?}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\textwidth]{vit_dense.pdf}
+\caption{ViT denso de 100 épocas: accuracy de entrenamiento (sin aumento de datos) y de prueba por época.}
+\label{fig:vitdense}
+\end{figure}
+Con 100 épocas la red densa llega a 86.0\% de accuracy de prueba (78.9\% en 04), con una brecha de unos 4 puntos respecto al entrenamiento y la prueba todavía subiendo: un baseline razonable. Medido otra vez desde otro arranque (ronda 0 del control aleatorio) da 85.7\%, así que la inicialización explica unos 0.2 puntos.
+
+\begin{table}[H]
+\centering\small
+\input{figures/table_vitlong.tex}
+\caption{ViT largo (05): accuracy de prueba (\%) por porcentaje de pesos restantes.}
+\label{tab:vitlong}
+\end{table}
+
+El ticket sigue por encima de la red densa hasta $\sim$12\% de los pesos, así que el resultado de 04 no era solo un baseline débil. El ticket le gana al control aleatorio en todos los puntos, y la diferencia crece al podar más (de unos 5 puntos con 27.5\% de los pesos a unos 9 con 3.2\%).
+
+\subsection{H1: rewinding según la arquitectura}
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}lllp{0.38\linewidth}@{}}
+\toprule
+Arquitectura & Rewind probado & ¿Hizo falta? & Evidencia \\
+\midrule
+MLP & no & no & el ticket desde $\theta_0$ iguala a la red densa hasta 3.5\% de los pesos \\
+CNN & no & no & ídem (con poda global hasta 10.7\%) \\
+ResNet & época 1 & \textbf{sí} & desde $\theta_0$ igual al aleatorio (86.3 vs.\ 86.5\%); con rewind 89.6\% \\
+ViT 20 ép. & época 2 & no & rewind queda $\approx$ ticket ($-0.7$ puntos en promedio) \\
+ViT 100 ép. & época 5 & solo con poca densidad & sin efecto con $\ge$12\% de pesos; +3.4 puntos con 7.5\% y +3.3 con 4.9\%, +1.2 con 3.2\% \\
+\bottomrule
+\end{tabular}
+\caption{Necesidad de rewinding por arquitectura.}
+\end{table}
+
+Los datos son compatibles con la idea de que a más complejidad se necesita rebobinar (MLP y CNN no, ResNet sí), pero el ViT, la arquitectura más compleja, no lo necesita con densidades medias. La relación no es monótona en la complejidad; la explicación que más compite es H2 (Sección~\ref{sec:h2}).
+
+\begin{borrador}
+En el ViT largo el rewinding solo ayuda cuando queda poco: con 12\% o más de los pesos, la subred aún tiene capacidad para recuperarse desde cualquier inicialización razonable, y ticket, rewind y red densa quedan dentro de $\sim$1 punto, que es el ruido de una sola corrida. Con 7.5\% y 4.9\% la subred tiene poca capacidad y su entrenamiento es más sensible; Frankle et~al.\ \cite{frankle2019stabilizing} encuentran que el ticket solo es estable si se arranca después de unas pocas iteraciones. Las 5 épocas del rewinding coinciden con el final del warmup, lo que es compatible con esa idea pero no se probó. En 04 el baseline subentrenado dejaba poco margen, y no tiene los puntos 7.5\% y 4.9\% donde 05 muestra la ganancia; las dos corridas no son comparables punto por punto. La ganancia de +3.4 puntos supera el ruido binomial ($\pm0.6$), pero no se repitió con otra semilla.
+\end{borrador}
+
+\subsection{H2: ¿hace falta warmup? (observacional)}\label{sec:h2}
+Lo que \textit{se observó}: la ResNet (sin warmup, \textit{learning rate} 0.1 desde la época 0) necesita rewinding; el ViT (con warmup de 2 y 5 épocas) funciona desde $\theta_0$ y solo aprovecha el rewind con muy poca densidad. Lo que \textit{no se hizo}: variar el warmup dentro de una misma arquitectura. Las dos arquitecturas difieren además en el optimizador (SGD frente a AdamW), el tipo de capa, la normalización (BatchNorm frente a LayerNorm) y los datos aumentados. Por eso la conclusión permitida es: \textit{el patrón es compatible con que el warmup haga el trabajo del rewinding \cite{frankle2019lth,frankle2019stabilizing}, pero no se puede separar de las otras diferencias}. La prueba directa sería repetir la ResNet con warmup (un ticket desde $\theta_0$ debería aparecer) y el ViT sin warmup (el ticket desde $\theta_0$ debería dejar de funcionar y el rewind ayudar).
+
+\begin{pendiente}
+Decidir si este experimento (ResNet con warmup y ViT sin warmup, con una semilla cada uno: unas 1 h 45 min y 45 min de GPU) se corre antes de entregar. Si se corre, esta sección pasa de \textit{observacional} a \textit{directa}.
+\end{pendiente}
+
+\subsection{H3: poda por capa frente a poda global (CNN)}\label{sec:h3}
+Con poda por capa el ticket de la CNN cae a partir de 16.8\% de los pesos y llega al mínimo con 10.7\%: 49.7\% frente a 61.0\% del control en la primera corrida, y 53.0\% frente a 61.2\% en la repetición (resultados de este informe), por lo que no es ruido. Con poda global (02b) el colapso desaparece: 75.7\% para el ticket frente a 69.4\% del control (red densa: 74.0\%). Pasa de 8 puntos \textit{por debajo} del control a 6 puntos \textit{por encima}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\textwidth]{cnn_layers.pdf}
+\caption{CNN: fracción de pesos vivos por capa en el ticket con 10.7\% de los pesos totales (línea punteada), poda por capa frente a poda global.}
+\label{fig:cnnlayers}
+\end{figure}
+
+\begin{table}[H]
+\centering\footnotesize
+\input{figures/table_cnnmasks.tex}
+\caption{CNN, ronda 10 (10.7\% de los pesos). ``Vacíos'': filtros convolucionales sin ningún peso vivo; en fc3, neuronas ocultas sin ningún peso hacia la salida.}
+\label{tab:cnnmasks}
+\end{table}
+
+Las máscaras permiten ver el mecanismo (Tabla~\ref{tab:cnnmasks}): con poda por capa la primera convolución queda con 188 de 1,728 pesos, 7 de sus 64 filtros están vacíos y 102 de las 256 neuronas ocultas no llegan a la salida. Con poda global la primera convolución conserva el 88\% de sus pesos, no hay filtros ni neuronas vacíos, y la primera capa lineal, que concentra el 86\% de los pesos y es la más redundante, absorbe la poda (queda en 4.8\%). Esto es consistente con H3 y con el uso de poda global en las redes profundas de \cite{frankle2019lth}.
+
+\paragraph{Limitaciones de esta conclusión.} (1) Es una sola corrida por configuración, y 02 y 02b tienen inicializaciones distintas. (2) 02b cambia \textit{dos cosas a la vez} desde el punto de vista del mecanismo: el alcance de la poda y, en consecuencia, cuántos pesos conserva cada capa; el experimento no separa ``la poda global'' de ``que cada capa conserve más''. Se separaría con poda por capa que fije un mínimo de pesos por capa. (3) El dense baseline también cambió (73.0\% en 02, 74.0\% en 02b), lo que da una idea del ruido entre corridas ($\sim$1 punto).
+
+\paragraph{¿Por qué la poda global conserva las capas pequeñas? Tamaño de los pesos.} La poda global elimina los pesos de menor magnitud de toda la red, así que lo que sobrevive en cada capa depende de qué tan grandes son sus pesos. En la CNN densa entrenada la mediana de $|w|$ es de 0.105 en conv1 (1,728 pesos) y de 0.0086 en fc1 (2.1M pesos), unas 12 veces menos; fc3 (2,560 pesos) tiene 0.064. Un umbral global tira primero los pesos diminutos de fc1 y casi no toca a conv1 y fc3 (Figura~\ref{fig:mag}, paneles izquierdo y central). La poda por capa ignora esa diferencia y obliga a conv1 a perder tantos pesos como fc1, lo que deja filtros y neuronas vacíos. Las diferencias de magnitud son coherentes con la inicialización por defecto de PyTorch, cuya escala es $\sim1/\sqrt{\text{fan-in}}$: conv1 tiene 27 entradas por neurona y fc1 tiene 8,192, así que cada peso de conv1 carga más información y empieza más grande. En el ViT la relación es parecida pero menos limpia (Figura~\ref{fig:mag}, panel derecho): \texttt{head} (37\% vivo) y \texttt{patch\_embed} (25\%) tienen los pesos más grandes y sobreviven más que \texttt{qkv}, \texttt{mlp.0}, \texttt{proj} y \texttt{mlp.2}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{magnitudes.pdf}
+\caption{Tamaño de los pesos por capa (mediana de $|w|$ en la red densa) y fracción que sobrevive a la poda global. Izquierda: CNN, con el número de pesos de cada capa sobre las barras. Centro: CNN, mediana de $|w|$ contra \% vivo con 10.7\% de los pesos totales. Derecha: ViT largo con 11.6\%.}
+\label{fig:mag}
+\end{figure}
+
+\paragraph{Qué se puede y qué no se puede concluir sobre redes más grandes (H3b).} Con la CNN se puede concluir que la poda por capa fue la causa del colapso y que el mecanismo es el cuello de botella en las capas pequeñas: son las capas con los pesos más grandes y se les obligó a perder la misma fracción que a la capa enorme y redundante. Eso \textit{no} prueba que toda red grande necesite poda global: (1) ResNet y ViT no se podaron por capa, así que no hay comparación en ellas; (2) el MLP se podó por capa sin problemas (97.2\% con 3.5\% de los pesos) aunque su capa de salida tiene solo 1,000 pesos, así que la poda por capa no falla siempre; (3) la CNN es una red con una capa que concentra el 86\% de los pesos, que es el caso más favorable para la poda global. Lo que sí es razonable esperar es que el problema crezca con la heterogeneidad de tamaños: el ViT tiene capas desde 1,920 pesos (\texttt{head}) hasta 442,368 (\texttt{mlp}), y Frankle y Carbin \cite{frankle2019lth} usan poda global justamente en las redes profundas. La prueba directa sería repetir el ViT (04, unos 45 min de GPU) y la ResNet (03, unos 1 h 45 min) con poda por capa.
+
+\subsection{Inspección de los tickets del ViT largo}
+Se inspeccionaron los checkpoints de 05 a 11.6\% de los pesos (ronda 5). Las figuras de esta sección se generan con \texttt{report/make\_figures.py}; \texttt{06\_inspection} contiene vistas adicionales (cabezas de atención, IoU entre ticket y rewinding, forma de las máscaras).
+
+\paragraph{Pesos vivos por capa.}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{heat.pdf}
+\caption{ViT largo: fracción viva por tipo de capa y ronda de poda (promedio ponderado sobre los 6 bloques).}
+\label{fig:heat}
+\end{figure}
+\textit{Cómo leerla:} clara = casi todos los pesos vivos; oscura = casi vacía. Con poda global las capas no pierden parejo: en la última ronda (3.2\% del total) \texttt{head} conserva 21\%, \texttt{patch\_embed} 7\%, \texttt{qkv} 4.5\%, \texttt{proj} 2.6\%, \texttt{mlp.0} 2.7\% y \texttt{mlp.2} 1.3\%.
+
+\paragraph{Accuracy por clase.}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\textwidth]{cls.pdf}
+\caption{ViT largo: diferencia de accuracy por clase respecto al denso (11.6\% de los pesos). Banda gris: ruido de $\pm2.5$ puntos.}
+\label{fig:cls}
+\end{figure}
+\textit{Cómo leerla:} barras positivas = el modelo podado acierta más que el denso en esa clase; solo lo que cae fuera de la banda gris se interpreta (cada clase tiene 1,000 imágenes). El ticket queda entre $-0.4$ y $+4.5$ puntos del denso (mejor: perro), el rewinding entre $+0.7$ y $+5.5$ (mejor: gato), y el control aleatorio pierde en todas las clases, hasta 14.6 puntos en pájaro.
+
+\paragraph{Mapas de atención.}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{attn.pdf}
+\caption{ViT largo: atención del \texttt{[CLS]} en el último bloque (promedio de cabezas) para 5 imágenes de prueba (columnas); cada fila es un modelo.}
+\label{fig:attn}
+\end{figure}
+\textit{Cómo leerla:} cada cuadro de la matriz $8\times8$ es un parche de $4\times4$ píxeles; más brillante = más atención del \texttt{[CLS]}, el token que decide la clase. Si cae sobre el objeto, el modelo parece usar la zona correcta; si se reparte uniforme o se pega a un borde para todas las imágenes, usa algo menos específico de la imagen. \textit{Cautela:} la atención es una pista de dónde mira el modelo, no una explicación de su decisión. En las filas denso, ticket y rewinding la atención se reparte por distintas zonas; en el control aleatorio (misma máscara que el ticket, otra inicialización) se concentra en la parte inferior de las 5 imágenes.
+
+\paragraph{Entropía de la atención.}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{entropy.pdf}
+\caption{ViT largo: entropía de la atención del \texttt{[CLS]} frente al porcentaje de pesos restantes.}
+\label{fig:entropy}
+\end{figure}
+\textit{Cómo leerla:} máximo teórico $\ln 65\approx4.17$ (atención uniforme); cercano a 0 = una sola llave. Todos los modelos están lejos del máximo ($\approx3.6$ el denso) y la entropía baja al podar, es decir, la atención se concentra en menos parches; no dice si esa atención es correcta.
+
+\paragraph{Gradientes en el paso 0.}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{grad.pdf}
+\caption{ViT largo: norma del gradiente sobre los pesos vivos en el paso 0, por tipo de capa (escala logarítmica).}
+\label{fig:grad}
+\end{figure}
+\textit{Cómo leerla:} una barra el doble de alta es un gradiente dos veces mayor; se compara la misma capa entre modelos, no capas distintas entre sí. El rewinding arranca con normas menores en las capas internas que el ticket (por ejemplo \texttt{qkv}: 0.10 frente a 0.29) y el control aleatorio queda cerca del ticket; en \texttt{head} las normas son 1.16 (ticket), 0.61 (rewinding) y 1.21 (aleatorio).
+
+\begin{borrador}
+\textbf{\texttt{head} y \texttt{patch\_embed} conservan más pesos.} Con poda global se elimina el 35\% de menor magnitud \textit{de toda la red}, así que sobreviven más las capas con pesos grandes. \texttt{head} y \texttt{patch\_embed} son pequeñas y están en los extremos de la red, donde no hay la redundancia de los seis bloques del medio; es el mismo patrón que en la CNN global, donde la primera convolución conserva 88\%. Es una explicación plausible, no probada; se confirmaría mirando la distribución de magnitudes por capa. \textbf{Atención del control aleatorio abajo.} Comparte la máscara con el ticket y solo cambia los valores iniciales: la inicialización (o el camino de entrenamiento que induce) influye en dónde mira la red, no solo la estructura; con 5 imágenes y una corrida es una observación, no un resultado. \textbf{Rewinding con gradientes menores.} Desde la época 5 los pesos ya salieron del arranque más abrupto; es coherente con que sea el final del warmup, pero no se midió si eso \textit{causa} la mejora a baja densidad. \textbf{Clases.} El ticket queda dentro del ruido en la mayoría de las clases, así que la ventaja no viene de una sola clase, aunque con 1,000 imágenes por clase tampoco se puede afirmar que sea pareja.
+\end{borrador}
+
+\subsection{Incertidumbre}
+Una sola semilla por experimento y 10,000 imágenes de prueba. El intervalo binomial del 95\% sobre una accuracy de $\sim$88\% es de $\pm0.6$ puntos; las diferencias entre ticket y control (5--9 puntos), entre ticket y denso a 27.5\% de los pesos ($+3$ puntos) y el colapso de la CNN ($-8$ puntos) lo superan; ticket frente a denso con 7.5\% de los pesos no. Este intervalo mide solo el ruido del conjunto de prueba, no la variación entre semillas, que no se midió y puede ser mayor (por ejemplo, el denso de la CNN dio 73.0\% y 74.0\% en dos corridas).
+
+%% ======================================================================
+\section{Discusión}
+\subsection{Qué dicen los resultados sobre cada hipótesis}
+\begin{table}[H]
+\centering\small
+\begin{tabular}{@{}lp{0.2\linewidth}p{0.55\linewidth}@{}}
+\toprule
+Hipótesis & Veredicto & Base \\
+\midrule
+H0 existencia & \textbf{apoyada} & ticket $\ge$ denso y $>$ aleatorio en las cuatro arquitecturas (ResNet: con rewind; CNN: con poda global en todo el rango) \\
+H1 complejidad $\to$ rewind & \textbf{parcial} & ResNet lo necesita, MLP y CNN no, ViT solo a poca densidad; no hay barrido de $k$ y la relación no es monótona \\
+H2 warmup $\approx$ rewind & \textbf{compatible, no probada} & patrón observado entre ResNet y ViT, confundido con optimizador, normalización y datos \\
+H3a global $>$ por capa (CNN) & \textbf{apoyada} & 53.0\% $\to$ 75.7\% a 10.7\%; máscaras sin filtros ni neuronas vacíos; los pesos de las capas pequeñas son mucho mayores (Fig.~\ref{fig:mag}); una sola corrida \\
+H3b redes grandes necesitan global & \textbf{consistente, no probada} & solo la CNN tiene ambas variantes; el MLP funciona por capa; ResNet y ViT nunca se podaron por capa \\
+\bottomrule
+\end{tabular}
+\caption{Estado de las hipótesis.}
+\end{table}
+
+\paragraph{Sobre ``más compleja la red, más tarde aparece el ticket''.} Los datos son compatibles de forma cualitativa, pero no son una prueba: cada arquitectura tiene como mucho uno o dos puntos de rewind, y las arquitecturas difieren en más que su complejidad (datos MNIST frente a CIFAR-10, optimizadores y \textit{schedules}, alcance de la poda, tasas de poda, número de épocas).
+
+\paragraph{Sobre el alcance de la poda.} El resultado de la CNN muestra que la forma de podar puede cambiar la conclusión más que la arquitectura. Eso afecta la comparación entre experimentos: el MLP y la primera CNN podaron por capa y la ResNet y el ViT globalmente, así que parte de lo que parece diferencia entre arquitecturas puede ser diferencia entre tipos de poda.
+
+\subsection{Limitaciones}
+\begin{itemize}[nosep]
+    \item Una sola semilla por experimento, sin barras de error ni pruebas de significancia.
+    \item No se barrió el punto de rewind $k$; no se puede decir \textit{cuándo} se fija el ticket en cada arquitectura.
+    \item El warmup no se manipuló (H2).
+    \item Presupuesto de cómputo: el ViT largo tarda $\sim$5 horas por corrida; un barrido de $k$ sobre cuatro arquitecturas con varias semillas queda fuera del alcance.
+    \item Desviaciones respecto a las fuentes (épocas por ronda, tasas de poda, \textit{learning rate} del ViT sin ajustar): Apéndice~\ref{app:desv}.
+    \item No se probó si un ticket encontrado en un dataset sirve en otro.
+\end{itemize}
+
+\subsection{Preguntas de discusión generadas con IA}
+\begin{generadoia}
+Las preguntas de esta subsección y sus borradores de respuesta fueron generadas por una IA (Claude, mediante Claude Code) a partir de los resultados del proyecto. No forman parte del análisis ni de las hipótesis del autor (Secciones~1--6); se incluyen como material de discusión, para mostrar qué preguntas puede plantear una IA sobre estos datos y contrastarlas con las conclusiones propias. Cada una indica qué experimento la resolvería; las respuestas solo usan lo que los datos permiten decir.
+\end{generadoia}
+
+\begin{enumerate}[label=\textbf{P\arabic*.},leftmargin=*]
+\item \textit{La ResNet necesita rewinding con lr 0.1 y sin warmup; el ViT con warmup no lo necesitó a 11.6\% y solo lo aprovechó por debajo de $\sim$8\%. ¿El factor es la arquitectura o la estabilidad del arranque?} \textbf{Experimento:} ResNet con warmup, ViT sin él. \textbf{Borrador:} los datos no separan ambas cosas; el patrón es compatible con que el warmup haga el trabajo del rewinding, pero también con que el ViT sea más tolerante. Confundidos: optimizador, datos, tasa de poda.
+\item \textit{En el ViT largo el rewinding no ayudó con poco podado pero sí con mucho. ¿El punto de rewind necesario depende del nivel de poda?} \textbf{Experimento:} barrido de $k$ a dos o tres sparsidades fijas. \textbf{Borrador:} los datos lo sugieren (sin efecto a $\ge$12\%, +3.4 puntos a 7.5\%), pero hay un solo punto de rewind y una semilla: una pista, no una conclusión.
+\item \textit{¿1 época es ``tarde'' en una ResNet y 5 épocas en un ViT, o conviene medirlo en fracción del entrenamiento?} \textbf{Borrador:} como fracción, 1 de 77 épocas (1.3\%) frente a 5 de 100 (5\%); en iteraciones, 391 frente a $\sim$1{,}950. No hay unidad natural; lo razonable es reportar las tres y barrer $k$.
+\item \textit{El control aleatorio (misma máscara, pesos nuevos) falla por mucho. ¿Qué parte la aportan los valores exactos y qué parte la escala?} \textbf{Experimento:} reinicializar permutando los valores del ticket dentro de cada capa. \textbf{Borrador:} la estructura sola no basta (el control pierde 5--9 puntos en el ViT largo y $\sim$2 en el MLP); falta separar valores de escala.
+\item \textit{En el ViT largo el ticket supera a la red densa con $\sim$12\% de los pesos. ¿Es regularización por poda o un baseline mejorable?} \textbf{Experimento:} más épocas o más aumento al denso; varias semillas. \textbf{Borrador:} el denso de 100 épocas llega a 86.0\% y el ticket a 89.0\% con 27.5\% de los pesos, así que no es solo un baseline débil; la hipótesis restante es que la poda actúa como regularizador.
+\item \textit{[5] dice que estos tickets son difíciles en ViTs. ¿Qué condiciones del recipe explican la diferencia?} \textbf{Borrador:} \cite{shen2023dlth} reporta DeiT-Small en ImageNet; aquí el ViT es pequeño (1.8M pesos), con aumento fuerte y poda global, en CIFAR-10. No se pueden separar esos factores con los datos; presentarlo con reserva.
+\item \textit{El colapso de la CNN a 10.7\% coincide con filtros y neuronas vacíos. ¿Sería evitable con poda global?} \textbf{Respondida con 02b:} sí, el ticket pasa de 53.0\% a 75.7\% sin filtros ni neuronas vacíos. Queda abierto si es la poda global en sí o que la primera convolución conserve más pesos; se separaría fijando un mínimo por capa.
+\item \textit{¿Una capa con 7 de 64 filtros vacíos es un problema de capacidad o solo desperdicio de pesos?} \textbf{Borrador:} es capacidad perdida (esas salidas son constantes), y se suma a que 102 de 256 neuronas ocultas no llegan a la salida; con 10.7\% de los pesos esa red perdía capacidad real. Probar un mínimo de pesos por filtro lo confirmaría.
+\item \textit{¿Por qué la atención del control aleatorio se concentra abajo si comparte la máscara con el ticket?} \textbf{Borrador:} mismo patrón de conexiones, otra inicialización, otro lugar donde mira la red: la inicialización influye en qué solución encuentra el entrenamiento, no solo la estructura. Es una observación sobre 5 imágenes de una corrida.
+\item \textit{¿Qué tanto se parecen las máscaras del ticket y del rewinding?} \textbf{Experimento:} IoU de \texttt{06\_inspection} contra el IoU esperado entre dos máscaras aleatorias de la misma densidad $d$, que es $d/(2-d)$. \textbf{Borrador:} si es claramente mayor, ambos métodos redescubren parte de la misma estructura; si es bajo y ambos funcionan, hay muchos tickets distintos.
+\item \textit{Con una sola semilla y $\sim$10,000 imágenes de prueba, ¿qué diferencias son creíbles?} \textbf{Borrador:} ver Sección~6.7. Ticket frente a aleatorio, ticket frente a denso a 27.5\% y el colapso de la CNN superan el intervalo binomial; ticket frente a denso a 7.5\% no, y el ruido entre semillas no se midió.
+\item \textit{¿Cómo afecta que la poda sea global en unos modelos y por capa en otros a la comparación entre arquitecturas?} \textbf{Borrador:} no es un detalle (el resultado de la CNN cambió). Lo limpio sería repetir cada arquitectura con ambos tipos de poda.
+\end{enumerate}
+
+%% ======================================================================
+\section{Conclusión}
+\begin{enumerate}[nosep]
+    \item \textbf{Existen tickets en las cuatro arquitecturas.} En el MLP, la CNN y el ViT el ticket desde $\theta_0$ iguala o supera a la red densa y al control; en la ResNet solo con rewinding a la época 1. El ViT de 100 épocas lo confirma con un baseline mejor (86.0\%).
+    \item \textbf{La necesidad de rebobinar depende de la arquitectura \textit{y} del recipe de entrenamiento}, y con los datos actuales no se puede separar un efecto del otro. Es compatible con que el warmup cumpla el papel del rewinding (H2), pero esa hipótesis solo se observó.
+    \item \textbf{La forma de podar cambia el resultado.} Con poda por capa, el ticket de la CNN colapsa con 10.7\% de los pesos; con poda global no (75.7\% frente a 53.0\%). Las máscaras y el tamaño de los pesos muestran por qué: las capas pequeñas (conv1, fc3) tienen los pesos más grandes y la poda por capa las vacía al exigirles perder lo mismo que la capa enorme fc1. Que las redes más grandes requieran poda global es consistente con esto, pero solo se comparó en la CNN.
+    \item \textbf{El ViT es donde más se profundizó:} el ticket supera a la red densa hasta $\sim$12\% de los pesos, el rewinding ayuda solo con poca densidad, y la inspección muestra que \texttt{head} y \texttt{patch\_embed} conservan más pesos y que la atención del control aleatorio difiere de la del ticket.
+    \item \textbf{Alcance y honestidad de los datos:} una semilla por experimento; diferencias de $\sim$1 punto o menos son ruido.
+\end{enumerate}
+
+\subsection{Trabajo futuro}
+\begin{itemize}[nosep]
+    \item Probar H2 de forma directa: ResNet con warmup y ViT sin warmup.
+    \item Barrer el punto de rewind $k$ en las cuatro arquitecturas, con varias semillas y pruebas de significancia (McNemar sobre las predicciones guardadas es la más barata).
+    \item Probar H3b: repetir ViT y ResNet con poda por capa; y separar el efecto del alcance de la poda de la cantidad de pesos por capa (poda por capa con un mínimo por capa).
+    \item Control aleatorio con valores permutados; transferencia de tickets entre datasets (SVHN).
+\end{itemize}
+
+%% ======================================================================
+\printbibliography
+
+\appendix
+\section{Desviaciones respecto a las fuentes}\label{app:desv}
+\begin{table}[H]
+\centering\footnotesize
+\begin{tabular}{@{}p{0.2\linewidth}p{0.3\linewidth}p{0.4\linewidth}@{}}
+\toprule
+Elemento & Fuente & Este proyecto \\
+\midrule
+Épocas por ronda, MLP & 50K iteraciones \cite{frankle2019lth} & 5 épocas ($\sim$5K iteraciones) \\
+Tasa de poda, MLP & 10\% en la capa de salida & 20\% en todas \\
+Tasas de poda, CNN & conv 10\% / lineales 20\% & 20\% en todas \\
+Batch, CNN & 60 & 64 (30 épocas) \\
+Validación, ResNet & 45K train / 5K val & 50K train, sin validación \\
+Punto de rewind, ResNet & iteración 500 \cite{frankle2019stabilizing} & época 1 = iteración 391 \\
+Normalización, ResNet & resta de media por píxel & media y desviación por canal \\
+Estado del optimizador al rebobinar & continuo & se reinicia en la época de rewind \\
+Tasa de poda, ViT & 20\% & 35\% (menos rondas para llegar a $\sim$3\%) \\
+Learning rate, ViT & $5\cdot10^{-4}\times$ batch/512 $=1.25\cdot10^{-4}$ \cite{touvron2021deit} & $10^{-3}$ (sin ajustar) \\
+Warmup, ViT & 5 épocas & 2 de 20 (04) y 5 de 100 (05) \\
+Semillas & promedio de varias corridas & una sola \\
+\bottomrule
+\end{tabular}
+\caption{Desviaciones respecto a las fuentes (detalle en \texttt{REFERENCES.md}).}
+\end{table}
+
+\section{Cómo reproducir}
+\begin{verbatim}
+cd notebooks && uv run python 02b_cnn_global.py   # un experimento
+uv run python report/make_figures.py              # figuras y tablas del informe
+cd report && latexmk -pdf informe.tex             # este documento
+cd notebooks && uv run marimo run 08_demo.py      # demo interactiva
+\end{verbatim}
+
+\end{document}
