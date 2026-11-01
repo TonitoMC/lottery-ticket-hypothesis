@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lottery Ticket Hypothesis - Presentación</title>
+<style>
+:root {
+  --bg: #0f1220; --bg2: #171b30; --card: #1c2140; --ink: #f2f3f8; --muted: #a3acc9; --line: #2b3157;
+  --ticket: #6ea8ff; --rewind: #3ddc97; --random: #ffb454; --human: #3ddc97; --ai: #b794ff; --warn: #ffb454; --accent: #6ea8ff;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+.slide { position: absolute; inset: 0; padding: 5vh 6vw 9vh; display: none; flex-direction: column; gap: 1.2vh; background: radial-gradient(1200px 700px at 85% -10%, #232a5a55, transparent 60%), var(--bg); }
+.slide.active { display: flex; }
+.body { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 2.6vh; }
+h1 { font-size: clamp(34px, 5.4vw, 80px); line-height: 1.04; margin: 0; letter-spacing: -0.03em; font-weight: 800; }
+h2 { font-size: clamp(22px, 2.8vw, 42px); line-height: 1.12; margin: 0; letter-spacing: -0.02em; font-weight: 750; max-width: 80vw; }
+p, li { font-size: clamp(13px, 1.5vw, 22px); line-height: 1.42; margin: 0; }
+.kicker { font-size: clamp(11px, 1.05vw, 15px); text-transform: uppercase; letter-spacing: 0.18em; color: var(--accent); font-weight: 700; }
+.sub { color: var(--muted); }
+.hl { color: var(--ticket); font-weight: 700; } .g { color: var(--rewind); font-weight: 700; } .o { color: var(--random); font-weight: 700; }
+.row { display: grid; gap: 1.6vw; align-items: stretch; }
+.row.two { grid-template-columns: 1fr 1fr; } .row.three { grid-template-columns: repeat(3, 1fr); } .row.four { grid-template-columns: repeat(4, 1fr); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 2vh 1.4vw; display: flex; flex-direction: column; gap: 1vh; min-height: 0; }
+.card h3 { margin: 0; font-size: clamp(15px, 1.8vw, 26px); }
+.tiny { font-size: clamp(11px, 1.2vw, 17px); color: var(--muted); line-height: 1.4; }
+.big { font-size: clamp(28px, 4vw, 60px); font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+.chip { display: inline-block; font-size: clamp(11px, 1.1vw, 16px); padding: 0.4vh 0.85vw; border-radius: 99px; border: 1px solid var(--line); background: var(--bg2); margin: 0.3vh 0.3vw 0.3vh 0; }
+.chip.me { border-color: var(--human); color: var(--human); } .chip.ai { border-color: var(--ai); color: var(--ai); }
+.chip.todo { border-style: dashed; border-color: var(--warn); color: var(--warn); }
+.lane { display: grid; grid-template-columns: 6vw 1fr; align-items: center; gap: 1.2vw; }
+.lane > b { font-size: clamp(16px, 2.2vw, 32px); } .lane.me > b { color: var(--human); } .lane.ai > b { color: var(--ai); }
+.lane .track { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 2vh 1.4vw; }
+.flow { display: flex; align-items: stretch; gap: 0.7vw; }
+.flow .step { flex: 1; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 1.4vh 0.9vw; font-size: clamp(11px, 1.25vw, 18px); display: flex; flex-direction: column; gap: 0.4vh; }
+.flow .step b { font-size: clamp(14px, 1.6vw, 24px); color: var(--ticket); }
+.flow .arrow { align-self: center; color: var(--muted); font-size: clamp(16px, 2vw, 28px); }
+.timeline { position: relative; height: 17vh; margin: 0 3vw; }
+.timeline .axis { position: absolute; left: 0; right: 0; top: 50%; border-top: 3px solid var(--line); }
+.timeline .pt { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--bg); }
+.timeline .lab { position: absolute; transform: translateX(-50%); text-align: center; font-size: clamp(11px, 1.2vw, 17px); width: 22vw; line-height: 1.3; }
+.chart { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 1.4vh 1.1vw 0.6vh; display: flex; flex-direction: column; }
+.chart h3 { margin: 0 0 0.4vh; font-size: clamp(14px, 1.6vw, 23px); display: flex; align-items: center; gap: 0.8vw; }
+.chart > div { height: 37vh; } .chart svg { display: block; width: 100%; height: 100%; }
+.legend { display: flex; gap: 1.6vw; flex-wrap: wrap; font-size: clamp(11px, 1.2vw, 17px); color: var(--muted); }
+.legend i { display: inline-block; width: 24px; border-top: 3px solid; vertical-align: middle; margin-right: 7px; }
+.read { display: grid; grid-template-columns: 1fr 1fr; gap: 1.6vw; }
+.read > div { border-left: 3px solid var(--line); padding-left: 1vw; display: flex; flex-direction: column; gap: 0.4vh; }
+.read > div > b { font-size: clamp(13px, 1.5vw, 22px); }
+.bubble { background: var(--bg2); border: 1px solid var(--line); border-radius: 14px 14px 14px 4px; padding: 1.1vh 0.9vw; font-size: clamp(11px, 1.2vw, 17px); }
+.ph { border: 2px dashed var(--line); border-radius: 12px; background: var(--bg2); display: flex; align-items: center; justify-content: center; height: 20vh; }
+.ph svg { width: 85%; height: 85%; opacity: .55; }
+.nav { position: fixed; bottom: 2.2vh; left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: 1.2vw; color: var(--muted); font-size: 14px; z-index: 5; }
+.nav button { background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; width: 38px; height: 32px; cursor: pointer; font-size: 16px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line); display: inline-block; margin: 0 3px; } .dot.on { background: var(--accent); }
+code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; font-size: 0.9em; }
+#net-dense, #net-sparse { height: 22vh; } #net-dense svg, #net-sparse svg { width: 100%; height: 100%; }
+@media (max-width: 760px) { .row.two, .row.three, .row.four, .read { grid-template-columns: 1fr; } .slide { overflow: auto; } .flow { flex-direction: column; } }
+</style>
+</head>
+<body>
+
+<section class="slide" id="s1">
+  <div id="net-hero" style="position:absolute; right:3vw; top:10vh; bottom:12vh; width:42vw; opacity:.85"></div>
+  <div style="margin:auto 0; position:relative; max-width:50vw">
+    <div class="kicker">Proyecto Final · Deep Learning</div>
+    <h1 style="margin-top:2vh">¿Cuándo aparece el <span class="g">boleto ganador</span> de una red?</h1>
+    <p class="sub" style="margin-top:3vh">La Lottery Ticket Hypothesis en un MLP, una CNN, una ResNet y un Vision Transformer</p>
+    <p style="margin-top:5vh">José Antonio Mérida<br><span class="sub">2 de noviembre de 2026</span></p>
+  </div>
+</section>
+
+<section class="slide" id="s2">
+  <div class="kicker">La idea · Frankle &amp; Carbin, ICLR 2019 [1]</div>
+  <h2>Casi todos los pesos de una red sobran: queda un boleto ganador</h2>
+  <div class="body">
+    <div class="row" style="grid-template-columns: 1fr 1fr 1.25fr">
+      <div class="card"><h3>Red densa</h3><div id="net-dense"></div><p class="tiny">Cada línea es un peso. Entrenarla da la accuracy completa.</p></div>
+      <div class="card"><h3 class="g">Subred podada</h3><div id="net-sparse"></div><p class="tiny">Se ponen en 0 los pesos de menor magnitud |w|. Quedan ~10%.</p></div>
+      <div class="card" style="justify-content:center">
+        <p>Si entrenas esa subred desde <b>los mismos valores iniciales</b>, aprende casi igual de bien que la red completa. Es un <span class="g">boleto ganador</span>.</p>
+        <p><b>Control:</b> la misma estructura con pesos iniciales <span class="o">nuevos</span>. Si rinde peor, importan los valores iniciales, no solo la forma.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="s3">
+  <div class="kicker">Cómo se busca el ticket · y la pregunta del proyecto</div>
+  <h2>Podar de a poco, y decidir a qué punto regresar los pesos</h2>
+  <div class="body">
+    <div class="flow">
+      <div class="step"><b>1 · Entrenar</b>la red completa hasta el final.</div><span class="arrow">→</span>
+      <div class="step"><b>2 · Podar</b>el 20% de los pesos de menor magnitud.</div><span class="arrow">→</span>
+      <div class="step"><b>3 · Regresar</b>los pesos que quedan a un valor de referencia.</div><span class="arrow">→</span>
+      <div class="step"><b>4 · Repetir</b>con la red cada vez más pequeña (IMP).</div>
+    </div>
+    <div class="card">
+      <div class="timeline">
+        <div class="axis"></div>
+        <div class="pt" style="left:3%; background:var(--ticket)"></div><div class="lab" style="left:11%; top:0.5vh; color:var(--ticket)"><b>θ₀: inicialización</b><br>ticket clásico</div>
+        <div class="pt" style="left:34%; background:var(--rewind)"></div><div class="lab" style="left:34%; top:10.5vh; color:var(--rewind)"><b>θₖ: época k</b><br><i>rewinding</i> [2]</div>
+        <div class="pt" style="left:97%; background:var(--muted)"></div><div class="lab" style="left:90%; top:0.5vh; color:var(--muted)"><b>θ_T: final</b><br>red entrenada</div>
+      </div>
+      <p><b>Mi hipótesis:</b> mientras más compleja la red, más tarde (mayor <i>k</i>) se "fija" el ticket. Lo pruebo en un MLP, una CNN, una ResNet y un ViT.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="s4">
+  <div class="kicker">Cómo lo construí</div>
+  <h2>Escribí los modelos y los loops de entrenamiento a mano</h2>
+  <div class="body">
+    <div class="row" style="grid-template-columns: 1.7fr 1fr">
+      <div class="card" style="border-top:4px solid var(--human)">
+        <h3 class="g">Mi parte</h3>
+        <ul style="display:flex;flex-direction:column;gap:0.8vh">
+          <li>El tema, la pregunta y la hipótesis</li>
+          <li>Los cuatro modelos con la API de PyTorch (<code>nn.Module</code>)</li>
+          <li>Los loops de entrenamiento y evaluación</li>
+          <li>El código de poda (<code>lth.py</code>): máscaras, IMP y control</li>
+          <li>Correr los experimentos, el análisis y la interpretación</li>
+        </ul>
+      </div>
+      <div class="card" style="border-top:4px solid var(--ai)">
+        <h3 style="color:var(--ai)">Apoyo de la IA</h3>
+        <ul style="display:flex;flex-direction:column;gap:0.8vh">
+          <li class="tiny">Guardado de pesos y máscaras</li>
+          <li class="tiny">Visualizaciones</li>
+          <li class="tiny">Revisión de código e hiperparámetros</li>
+          <li class="tiny">Estructura del reporte y de esta presentación</li>
+        </ul>
+      </div>
+    </div>
+    <p class="tiny">El objetivo era aprender PyTorch construyendo yo las piezas importantes, y dedicar el tiempo a entender los resultados.</p>
+  </div>
+</section>
+
+<section class="slide" id="s5">
+  <div class="kicker">Herramientas aplicadas</div>
+  <h2>Lo que usé que no vimos en clase, y cómo trabajé con la IA</h2>
+  <div class="body">
+    <div class="row two">
+      <div class="card">
+        <h3>Herramientas</h3>
+        <p class="tiny"><b>PyTorch y torchvision</b> (vistos en clase): modelos, entrenamiento y aumento de datos.</p>
+        <p class="tiny"><b>marimo:</b> notebooks reactivos. Cada celda declara qué variables usa y, si cambia una, se recalculan las que dependen de ella. Se guardan como archivos <code>.py</code> (funcionan bien con git) y se exportan a HTML y PDF.</p>
+        <p class="tiny"><b>uv:</b> gestor de paquetes y entornos de Python; <code>uv sync</code> recrea el entorno exacto a partir de <code>uv.lock</code>.</p>
+        <p class="tiny"><b>Claude Code:</b> asistente de IA en la terminal que lee el repositorio, edita código y corre comandos con mi permiso. Lo usé para los checkpoints, las gráficas y la revisión.</p>
+      </div>
+      <div class="card">
+        <h3>Prompts y evolución de la idea</h3>
+        <div class="bubble">"Can these models be exported so I can run experiments on them? Using masks to see how they turn out."</div>
+        <div class="bubble">"I wanna handpick from results to see what changes… also saving % of original params."</div>
+        <div class="bubble">"ViT longer has to have more epochs + maybe more aggressive data augmentation."</div>
+        <p class="tiny">Evolución: MLP → CNN → ResNet y ViT → comparación y rewinding → ViT con más épocas e inspección de máscaras.</p>
+        <div><span class="chip todo">Agregar los prompts de sesiones anteriores</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="s6">
+  <div class="kicker">Resultados · 1 de 3</div>
+  <h2>En las redes pequeñas, el boleto ya está en la inicialización</h2>
+  <div class="body">
+    <div class="legend"><span><i style="color:var(--ticket)"></i>Ticket (regresa a θ₀)</span><span><i style="color:var(--random);border-top-style:dashed"></i>Control: pesos nuevos</span></div>
+    <p class="tiny">Eje x: % de pesos que quedan (escala log; a la derecha la red es más chica). Eje y: accuracy de prueba. Si la línea azul se mantiene arriba y la naranja cae, el ticket funciona.</p>
+    <div class="row two">
+      <div class="chart"><h3>MLP · MNIST</h3><div id="c-mlp"></div></div>
+      <div class="chart"><h3>CNN · CIFAR-10 <span id="h-cnn"></span></h3><div id="c-cnn"></div></div>
+    </div>
+    <div class="read"><div id="t-mlp"></div><div id="t-cnn"></div></div>
+  </div>
+</section>
+
+<section class="slide" id="s7">
+  <div class="kicker">Resultados · 2 de 3</div>
+  <h2>La ResNet necesita rebobinar; el ViT no</h2>
+  <div class="body">
+    <div class="legend"><span><i style="color:var(--ticket)"></i>Ticket (θ₀)</span><span><i style="color:var(--rewind)"></i>Ticket con rewinding (θₖ)</span><span><i style="color:var(--random);border-top-style:dashed"></i>Control: pesos nuevos</span></div>
+    <div class="row two">
+      <div class="chart"><h3>ResNet · rewind a la época 1</h3><div id="c-resnet"></div></div>
+      <div class="chart"><h3>ViT (20 épocas) · rewind a la época 2</h3><div id="c-vit"></div></div>
+    </div>
+    <div class="read"><div id="t-resnet"></div><div id="t-vit"></div></div>
+  </div>
+</section>
+
+<section class="slide" id="s8">
+  <div class="kicker">Resultados · 3 de 3</div>
+  <h2>ViT con 100 épocas: ¿el ticket sigue por encima de la red densa?</h2>
+  <div class="body">
+    <div class="row" style="grid-template-columns: 1.6fr 1fr;">
+      <div class="chart"><h3>ViT · 100 épocas · rewind a la época 5 <span id="h-vitlong"></span></h3><div id="c-vitlong" style="height:44vh"></div></div>
+      <div class="card" style="justify-content:center">
+        <h3>Por qué repetirlo</h3>
+        <p class="tiny">El ViT de 20 épocas llegó a 78.9% y parecía <b>subentrenado</b>, así que "el ticket supera a la red densa" podía ser solo un baseline débil.</p>
+        <p class="tiny">Ahora: 100 épocas, más aumento de datos (RandAugment, random erasing, mixup/cutmix) y label smoothing.</p>
+        <div id="t-vitlong"></div>
+        <div><span class="chip todo">Pendiente: rewinding y control aleatorio</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="s9">
+  <div class="kicker">Análisis de los tickets · pendiente</div>
+  <h2>¿Qué estructura encontró la poda? Cuatro vistas de los checkpoints</h2>
+  <div class="body">
+    <div class="row four">
+      <div class="card"><h3>Pesos por capa</h3>
+        <div class="ph"><svg viewBox="0 0 200 80"><g id="ph-heat"></g></svg></div>
+        <p class="tiny">Fracción viva por capa y por cabeza de atención. ¿Qué capas pierden más con poda global? ¿Queda alguna cabeza apagada?</p></div>
+      <div class="card"><h3>Atención</h3>
+        <div class="ph"><svg viewBox="0 0 200 80"><g id="ph-attn"></g></svg></div>
+        <p class="tiny">Atención del [CLS] en la red densa, el ticket, el rewinding y el control. ¿Cambia a dónde "mira" la red al podarla?</p></div>
+      <div class="card"><h3>Gradientes</h3>
+        <div class="ph"><svg viewBox="0 0 200 80"><g id="ph-grad"></g></svg></div>
+        <p class="tiny">Norma del gradiente al inicio del entrenamiento: inicialización del ticket vs. una nueva con la misma máscara.</p></div>
+      <div class="card"><h3>Accuracy por clase</h3>
+        <div class="ph"><svg viewBox="0 0 200 80"><g id="ph-cls"></g></svg></div>
+        <p class="tiny">Red densa vs. ticket más pequeño, clase por clase. ¿La poda daña más a las clases difíciles?</p></div>
+    </div>
+    <div><span class="chip todo">Resultados pendientes: se generan con 06_inspection.py al terminar la corrida del ViT</span></div>
+  </div>
+</section>
+
+<section class="slide" id="s10">
+  <div class="kicker">Conclusión</div>
+  <h2>Qué podemos decir y qué no</h2>
+  <div class="body">
+    <div class="row three">
+      <div class="card"><div class="big hl">1</div><h3>Los tickets existen</h3><p class="tiny">En el MLP, la CNN y el ViT, el ticket desde θ₀ iguala o supera a la red densa y le gana al control con pesos nuevos.</p></div>
+      <div class="card"><div class="big g">2</div><h3>La ResNet necesita rebobinar</h3><p class="tiny">Con lr 0.1, regresar a θ₀ no basta (igual que el control). Rebobinar a la época 1 recupera casi toda la accuracy.</p></div>
+      <div class="card"><div class="big o">3</div><h3>"Más compleja → más tarde": compatible, no probado</h3><p class="tiny">Hay uno o dos puntos de rewind por arquitectura, y además cambian datos, optimizador y poda. Un barrido de <i>k</i> con varias semillas queda como trabajo futuro.</p></div>
+    </div>
+    <p class="tiny">Límites: una semilla por experimento · ~10,000 imágenes de prueba (diferencias ≤ 1 punto son ruido) · sin transferencia entre datasets.</p>
+    <p class="tiny"><b>Referencias.</b> [1] Frankle &amp; Carbin, <i>The Lottery Ticket Hypothesis</i>, ICLR 2019. [2] Frankle et al., <i>Stabilizing the Lottery Ticket Hypothesis</i>, 2019. [3] Renda et al., <i>Comparing Rewinding and Fine-tuning in Neural Network Pruning</i>, ICLR 2020. [4] Touvron et al., <i>DeiT</i>, ICML 2021. [5] Shen et al., <i>Data Level Lottery Ticket Hypothesis for Vision Transformers</i>, IJCAI 2023.</p>
+  </div>
+</section>
+
+<div class="nav"><button id="prev" aria-label="Anterior">←</button><span id="dots"></span><span id="count"></span><button id="next" aria-label="Siguiente">→</button></div>
+
+<script>
+const DATA = /*DATA*/null;
+const cs = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+// Gráfica con el tamaño real del contenedor (solo se dibuja cuando la diapositiva está visible)
+function chart(id, d) {
+  const el = document.getElementById(id);
+  if (!d) { el.innerHTML = '<p class="sub">[sin datos todavía]</p>'; return; }
+  const W = el.clientWidth || 600, H = el.clientHeight || 320, m = {l: 52, r: 54, t: 12, b: 44};
+  const series = {ticket: ['--ticket', ''], ticket_late: ['--rewind', ''], random: ['--random', '8 6']};
+  const all = Object.values(d).flat();
+  const minX = Math.min(...all.map(p => p[0])), maxX = 100, ys = all.map(p => p[1]);
+  const step = (Math.max(...ys) - Math.min(...ys)) > 0.16 ? 0.1 : 0.05;
+  const y0 = Math.floor((Math.min(...ys) - 0.01) / step) * step, y1 = Math.ceil((Math.max(...ys) + 0.005) / step) * step;
+  const X = p => m.l + (Math.log10(maxX) - Math.log10(p)) / (Math.log10(maxX) - Math.log10(minX)) * (W - m.l - m.r);
+  const Y = v => H - m.b - (v - y0) / (y1 - y0) * (H - m.t - m.b);
+  let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="inherit">`;
+  for (let v = y0; v <= y1 + 1e-9; v += step) {
+    s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="${cs('--line')}"/>`;
+    s += `<text x="${m.l - 8}" y="${Y(v) + 5}" font-size="15" text-anchor="end" fill="${cs('--muted')}">${(v * 100).toFixed(0)}%</text>`;
+  }
+  [100, 50, 20, 10, 5, 2].filter(t => t >= minX * 0.9).forEach(t => {
+    s += `<text x="${X(t)}" y="${H - m.b + 22}" font-size="15" text-anchor="middle" fill="${cs('--muted')}">${t}%</text>`;
+  });
+  s += `<text x="${(W + m.l - m.r) / 2}" y="${H - 6}" font-size="14" text-anchor="middle" fill="${cs('--muted')}">pesos que quedan (escala log)</text>`;
+  const ends = [];
+  for (const [k, [color, dash]] of Object.entries(series)) {
+    if (!d[k]) continue;
+    const c = cs(color), pts = d[k].map(p => `${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join(' ');
+    s += `<polyline points="${pts}" fill="none" stroke="${c}" stroke-width="3.5" stroke-linejoin="round" stroke-dasharray="${dash}"/>`;
+    d[k].forEach(p => s += `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="4.5" fill="${c}"/>`);
+    ends.push([c, d[k].at(-1)]);
+  }
+  ends.sort((a, b) => Y(a[1][1]) - Y(b[1][1]));
+  let last = -99;
+  ends.forEach(([c, p]) => {
+    const y = Math.max(Y(p[1]), last + 17); last = y;
+    s += `<text x="${X(p[0]) + 9}" y="${y + 5}" font-size="15" font-weight="700" fill="${c}">${(p[1] * 100).toFixed(1)}</text>`;
+  });
+  el.innerHTML = s + '</svg>';
+}
+
+// Red decorativa: solo sobreviven las aristas "fuertes" cuando keep < 1
+function net(id, keep, opts = {}) {
+  const el = document.getElementById(id);
+  const layers = opts.layers || [5, 8, 8, 4], W = 600, H = 360;
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const pos = layers.map((n, l) => Array.from({length: n}, (_, i) => [60 + l * (W - 120) / (layers.length - 1), H / 2 + (i - (n - 1) / 2) * Math.min(42, (H - 60) / n)]));
+  let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">`;
+  for (let l = 0; l < layers.length - 1; l++) for (const a of pos[l]) for (const b of pos[l + 1]) {
+    const on = rnd() > 1 - keep;
+    s += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${on ? cs('--rewind') : cs('--line')}" stroke-width="${on ? 2.2 : 1}" opacity="${on ? 0.95 : (keep < 1 ? 0.3 : 0.85)}"/>`;
+  }
+  pos.flat().forEach(p => s += `<circle cx="${p[0]}" cy="${p[1]}" r="9" fill="${cs('--bg2')}" stroke="${cs('--ink')}" stroke-width="2"/>`);
+  el.innerHTML = s + '</svg>';
+}
+
+const at = (arr, pct) => arr.reduce((a, b) => Math.abs(b[0] - pct) < Math.abs(a[0] - pct) ? b : a);
+const f = v => (v * 100).toFixed(1) + '%';
+const todo = t => `<span class="chip todo">${t}</span>`;
+const set = (id, h) => { const e = document.getElementById(id); if (e) e.innerHTML = h; };
+
+// Texto explicativo calculado de los datos
+try {
+  const m = DATA.mlp, c = DATA.cnn, r = DATA.resnet, v = DATA.vit, l = DATA.vitlong;
+  set('t-mlp', `<b>MLP</b><p class="tiny">Capas totalmente conectadas sobre dígitos (MNIST). Con solo <b>${m.ticket.at(-1)[0]}%</b> de los pesos el ticket mantiene <span class="hl">${f(m.ticket.at(-1)[1])}</span> (la red completa: ${f(m.ticket[0][1])}). La misma estructura con pesos nuevos baja a <span class="o">${f(m.random.at(-1)[1])}</span>: los valores iniciales importan.</p>`);
+  const best = Math.max(...c.ticket.map(p => p[1])), cl = c.ticket.at(-1), cr = c.random.at(-1);
+  set('t-cnn', `<b>CNN</b><p class="tiny">Convoluciones sobre imágenes (CIFAR-10). El ticket llega a <span class="hl">${f(best)}</span>, por encima de la red completa (${f(c.ticket[0][1])}), y le gana al control en casi todo el rango. En el punto más chico (${cl[0]}% de los pesos): ticket ${f(cl[1])} vs. control ${f(cr[1])}` + (cl[1] < cr[1] ? ' <span class="o">(el ticket cae por debajo; punto en revisión)</span>.' : '.') + '</p>');
+  set('t-resnet', `<b>ResNet</b><p class="tiny">20 capas con conexiones residuales. Con ${r.ticket.at(-1)[0]}% de los pesos, regresar a θ₀ da <span class="hl">${f(r.ticket.at(-1)[1])}</span>, igual que el control (${f(r.random.at(-1)[1])}). <b>Rebobinar a la época 1</b> da <span class="g">${f(r.ticket_late.at(-1)[1])}</span> (red completa: ${f(r.ticket[0][1])}).</p>`);
+  const v11 = at(v.ticket, 11), vr = at(v.random, 11);
+  set('t-vit', `<b>ViT</b><p class="tiny">Transformer que parte la imagen en 64 parches. Con ~11% de los pesos el ticket tiene <span class="hl">${f(v11[1])}</span>, más que la red completa (${f(v.ticket[0][1])}); el control cae a <span class="o">${f(vr[1])}</span>. Rebobinar no mejora. Posible razón (sin probar): el <i>warmup</i>, un learning rate pequeño al inicio, ya estabiliza el arranque.</p>`);
+  if (l) {
+    const lt = l.ticket.at(-1), best2 = Math.max(...l.ticket.map(p => p[1]));
+    set('t-vitlong', `<div style="display:flex;gap:2vw;align-items:baseline"><div><span class="big" style="color:var(--muted)">${f(l.ticket[0][1])}</span><br><span class="tiny">red completa (antes 78.9%)</span></div><div><span class="big hl">${f(best2)}</span><br><span class="tiny">mejor ticket hasta ahora (${lt[0]}% de pesos: ${f(lt[1])})</span></div></div>`);
+  }
+} catch (e) { console.warn(e); }
+if (DATA.cnn) set('h-cnn', '');
+if (DATA.vitlong && DATA.vitlong_partial) set('h-vitlong', todo('corrida en curso'));
+
+// Esqueletos de las figuras pendientes (no son datos)
+function skeletons() {
+  const c = cs('--muted'); let h = '', a = '', g = '', k = '';
+  for (let r = 0; r < 6; r++) for (let q = 0; q < 14; q++) h += `<rect x="${8 + q * 13.5}" y="${6 + r * 11.5}" width="12" height="10" rx="2" fill="${c}" opacity="${0.15 + 0.7 * ((r * 5 + q * 3) % 10) / 10}"/>`;
+  for (let r = 0; r < 8; r++) for (let q = 0; q < 8; q++) a += `<rect x="${60 + q * 10}" y="${r * 9.5 + 2}" width="9" height="8.5" fill="${c}" opacity="${0.1 + 0.8 * Math.exp(-((r - 3) ** 2 + (q - 4) ** 2) / 6)}"/>`;
+  [0.8, 0.5, 0.35, 0.6, 0.25, 0.7].forEach((v, i) => { g += `<rect x="${15 + i * 29}" y="${75 - v * 65}" width="20" height="${v * 65}" fill="${c}" opacity=".5"/>`; });
+  [0.7, 0.9, 0.5, 0.4, 0.6, 0.8, 0.55, 0.75].forEach((v, i) => { k += `<rect x="${10 + i * 23}" y="${75 - v * 65}" width="14" height="${v * 65}" fill="${c}" opacity=".5"/><rect x="${24 + i * 23}" y="${75 - v * 58}" width="6" height="${v * 58}" fill="var(--rewind)" opacity=".5"/>`; });
+  document.getElementById('ph-heat').innerHTML = h; document.getElementById('ph-attn').innerHTML = a;
+  document.getElementById('ph-grad').innerHTML = g; document.getElementById('ph-cls').innerHTML = k;
+}
+
+// ---- navegación: las gráficas se dibujan al mostrar cada diapositiva ----
+const draw = {
+  s1: () => net('net-hero', 0.14, {layers: [6, 9, 11, 9, 5]}),
+  s2: () => { net('net-dense', 1); net('net-sparse', 0.12); },
+  s6: () => { chart('c-mlp', DATA.mlp); chart('c-cnn', DATA.cnn); },
+  s7: () => { chart('c-resnet', DATA.resnet); chart('c-vit', DATA.vit); },
+  s8: () => chart('c-vitlong', DATA.vitlong),
+  s9: () => skeletons(),
+};
+const slides = [...document.querySelectorAll('.slide')];
+let i = Math.max(0, Math.min(slides.length - 1, (parseInt(location.hash.slice(1)) || 1) - 1));
+const dots = document.getElementById('dots');
+slides.forEach(() => dots.insertAdjacentHTML('beforeend', '<span class="dot"></span>'));
+function show(n) {
+  i = Math.max(0, Math.min(slides.length - 1, n));
+  slides.forEach((s, k) => s.classList.toggle('active', k === i));
+  [...dots.children].forEach((d, k) => d.classList.toggle('on', k === i));
+  document.getElementById('count').textContent = `${i + 1} / ${slides.length}`;
+  history.replaceState(null, '', '#' + (i + 1));
+  const fn = draw[slides[i].id]; if (fn) fn();
+}
+document.getElementById('prev').onclick = () => show(i - 1);
+document.getElementById('next').onclick = () => show(i + 1);
+addEventListener('resize', () => show(i));
+addEventListener('keydown', e => {
+  if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); show(i + 1); }
+  if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); show(i - 1); }
+  if (e.key === 'Home') show(0); if (e.key === 'End') show(slides.length - 1);
+});
+show(i);
+</script>
+</body>
+</html>

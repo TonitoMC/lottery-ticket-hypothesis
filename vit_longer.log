@@ -1,0 +1,112 @@
+Using cuda device
+Feature batch shape: torch.Size([128, 3, 32, 32])
+Label batch shape: torch.Size([128])
+Epoch 1: loss = 2.2040, train acc = 0.3069, test acc = 0.3171
+Epoch 2: loss = 2.1148, train acc = 0.4272, test acc = 0.4082
+Epoch 3: loss = 2.0724, train acc = 0.4645, test acc = 0.4488
+Epoch 4: loss = 2.0561, train acc = 0.4763, test acc = 0.4703
+Epoch 5: loss = 2.0462, train acc = 0.4690, test acc = 0.4605
+Epoch 6: loss = 2.0223, train acc = 0.5177, test acc = 0.5125
+Epoch 7: loss = 1.9972, train acc = 0.5255, test acc = 0.5174
+Epoch 8: loss = 1.9838, train acc = 0.5503, test acc = 0.5368
+Epoch 9: loss = 1.9682, train acc = 0.5698, test acc = 0.5559
+Epoch 10: loss = 1.9519, train acc = 0.5460, test acc = 0.5266
+Epoch 11: loss = 1.9491, train acc = 0.5958, test acc = 0.5796
+Epoch 12: loss = 1.9282, train acc = 0.6085, test acc = 0.5938
+Epoch 13: loss = 1.9029, train acc = 0.6176, test acc = 0.6016
+Epoch 14: loss = 1.8922, train acc = 0.6094, test acc = 0.5952
+Epoch 15: loss = 1.9080, train acc = 0.5721, test acc = 0.5651
+Epoch 16: loss = 1.8872, train acc = 0.6402, test acc = 0.6190
+Epoch 17: loss = 1.8718, train acc = 0.6683, test acc = 0.6511
+Epoch 18: loss = 1.8534, train acc = 0.6417, test acc = 0.6266
+Epoch 19: loss = 1.8448, train acc = 0.6750, test acc = 0.6626
+Epoch 20: loss = 1.8310, train acc = 0.6759, test acc = 0.6608
+Epoch 21: loss = 1.8295, train acc = 0.6919, test acc = 0.6798
+Epoch 22: loss = 1.8020, train acc = 0.6915, test acc = 0.6759
+Epoch 23: loss = 1.8263, train acc = 0.6952, test acc = 0.6881
+Epoch 24: loss = 1.8287, train acc = 0.7256, test acc = 0.7073
+Epoch 25: loss = 1.8068, train acc = 0.7088, test acc = 0.7000
+Epoch 26: loss = 1.7929, train acc = 0.7243, test acc = 0.7064
+Epoch 27: loss = 1.7882, train acc = 0.7283, test acc = 0.7070
+Epoch 28: loss = 1.7889, train acc = 0.7325, test acc = 0.7146
+Epoch 29: loss = 1.7829, train acc = 0.7407, test acc = 0.7222
+Epoch 30: loss = 1.7561, train acc = 0.7411, test acc = 0.7281
+Epoch 31: loss = 1.7356, train acc = 0.7546, test acc = 0.7355
+Epoch 32: loss = 1.7733, train acc = 0.7301, test acc = 0.7080
+Epoch 33: loss = 1.7453, train acc = 0.7652, test acc = 0.7467
+Epoch 34: loss = 1.7341, train acc = 0.7688, test acc = 0.7473
+Epoch 35: loss = 1.7407, train acc = 0.7561, test acc = 0.7255
+Epoch 36: loss = 1.7335, train acc = 0.7669, test acc = 0.7437
+Epoch 37: loss = 1.7335, train acc = 0.7589, test acc = 0.7394
+Epoch 38: loss = 1.7221, train acc = 0.7751, test acc = 0.7578
+Epoch 39: loss = 1.7196, train acc = 0.7909, test acc = 0.7624
+Epoch 40: loss = 1.7247, train acc = 0.7895, test acc = 0.7660
+Epoch 41: loss = 1.7053, train acc = 0.7918, test acc = 0.7705
+Epoch 42: loss = 1.6934, train acc = 0.7966, test acc = 0.7707
+Epoch 43: loss = 1.7034, train acc = 0.7961, test acc = 0.7756
+Epoch 44: loss = 1.7102, train acc = 0.7945, test acc = 0.7703
+Epoch 45: loss = 1.6862, train acc = 0.8056, test acc = 0.7818
+Epoch 46: loss = 1.6921, train acc = 0.7999, test acc = 0.7762
+Epoch 47: loss = 1.6700, train acc = 0.7926, test acc = 0.7713
+Epoch 48: loss = 1.6809, train acc = 0.8131, test acc = 0.7885
+Epoch 49: loss = 1.6722, train acc = 0.8129, test acc = 0.7869
+Epoch 50: loss = 1.6647, train acc = 0.8177, test acc = 0.7888
+Epoch 51: loss = 1.6515, train acc = 0.8203, test acc = 0.7932
+Epoch 52: loss = 1.6614, train acc = 0.8264, test acc = 0.7974
+Epoch 53: loss = 1.6343, train acc = 0.8325, test acc = 0.8090
+Epoch 54: loss = 1.6472, train acc = 0.8338, test acc = 0.8082
+Epoch 55: loss = 1.6386, train acc = 0.8368, test acc = 0.8061
+Epoch 56: loss = 1.6264, train acc = 0.8397, test acc = 0.8118
+Epoch 57: loss = 1.6503, train acc = 0.8453, test acc = 0.8186
+Epoch 58: loss = 1.6292, train acc = 0.8394, test acc = 0.8114
+Epoch 59: loss = 1.6082, train acc = 0.8470, test acc = 0.8153
+Epoch 60: loss = 1.6301, train acc = 0.8481, test acc = 0.8206
+Epoch 61: loss = 1.5968, train acc = 0.8457, test acc = 0.8134
+Epoch 62: loss = 1.6194, train acc = 0.8574, test acc = 0.8219
+Epoch 63: loss = 1.5939, train acc = 0.8482, test acc = 0.8204
+Epoch 64: loss = 1.6078, train acc = 0.8515, test acc = 0.8228
+Epoch 65: loss = 1.6003, train acc = 0.8559, test acc = 0.8238
+Epoch 66: loss = 1.5844, train acc = 0.8588, test acc = 0.8322
+Epoch 67: loss = 1.5942, train acc = 0.8632, test acc = 0.8306
+Epoch 68: loss = 1.5956, train acc = 0.8584, test acc = 0.8291
+Epoch 69: loss = 1.5711, train acc = 0.8744, test acc = 0.8364
+Epoch 70: loss = 1.5701, train acc = 0.8697, test acc = 0.8379
+Epoch 71: loss = 1.5874, train acc = 0.8698, test acc = 0.8317
+Epoch 72: loss = 1.5684, train acc = 0.8724, test acc = 0.8393
+Epoch 73: loss = 1.5640, train acc = 0.8745, test acc = 0.8373
+Epoch 74: loss = 1.5563, train acc = 0.8791, test acc = 0.8436
+Epoch 75: loss = 1.5564, train acc = 0.8808, test acc = 0.8453
+Epoch 76: loss = 1.5642, train acc = 0.8854, test acc = 0.8471
+Epoch 77: loss = 1.5909, train acc = 0.8791, test acc = 0.8436
+Epoch 78: loss = 1.5471, train acc = 0.8878, test acc = 0.8474
+Epoch 79: loss = 1.5446, train acc = 0.8865, test acc = 0.8444
+Epoch 80: loss = 1.5369, train acc = 0.8869, test acc = 0.8485
+Epoch 81: loss = 1.5430, train acc = 0.8893, test acc = 0.8506
+Epoch 82: loss = 1.5489, train acc = 0.8930, test acc = 0.8511
+Epoch 83: loss = 1.5485, train acc = 0.8960, test acc = 0.8525
+Epoch 84: loss = 1.5665, train acc = 0.8919, test acc = 0.8505
+Epoch 85: loss = 1.5469, train acc = 0.8947, test acc = 0.8531
+Epoch 86: loss = 1.5521, train acc = 0.8969, test acc = 0.8544
+Epoch 87: loss = 1.5532, train acc = 0.8973, test acc = 0.8565
+Epoch 88: loss = 1.5045, train acc = 0.8991, test acc = 0.8557
+Epoch 89: loss = 1.5406, train acc = 0.8984, test acc = 0.8547
+Epoch 90: loss = 1.5150, train acc = 0.8987, test acc = 0.8542
+Epoch 91: loss = 1.5589, train acc = 0.8999, test acc = 0.8583
+Epoch 92: loss = 1.5469, train acc = 0.8994, test acc = 0.8591
+Epoch 93: loss = 1.5112, train acc = 0.9026, test acc = 0.8586
+Epoch 94: loss = 1.5471, train acc = 0.9020, test acc = 0.8578
+Epoch 95: loss = 1.5244, train acc = 0.9035, test acc = 0.8575
+Epoch 96: loss = 1.5248, train acc = 0.9020, test acc = 0.8592
+Epoch 97: loss = 1.5238, train acc = 0.9021, test acc = 0.8606
+Epoch 98: loss = 1.5406, train acc = 0.9029, test acc = 0.8598
+Epoch 99: loss = 1.5320, train acc = 0.9031, test acc = 0.8600
+Epoch 100: loss = 1.5170, train acc = 0.9032, test acc = 0.8595
+Dense final: test acc = 0.8595
+Winning tickets:
+Round 1: 65.0% left, acc = 0.8789
+Round 2: 42.3% left, acc = 0.8856
+Round 3: 27.5% left, acc = 0.8895
+Round 4: 17.9% left, acc = 0.8895
+Round 5: 11.6% left, acc = 0.8810
+Round 6: 7.5% left, acc = 0.8314
+Round 7: 4.9% left, acc = 0.8043

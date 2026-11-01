@@ -345,11 +345,19 @@ def _(mo):
 
 
 @app.cell
+def _(acc, init_state, lth, model, rewind_state):
+    # Guardar el modelo denso entrenado, sus pesos iniciales y los de la época 2 (rewind)
+    lth.save_base("../checkpoints/04_vit", model, init_state, rewind_state, rewind_epoch=2)
+    return
+
+
+@app.cell
 def _(ViT, acc, device, init_state, lr_at, lth, make_opt, model, rewind_state, test_loader, train_loader):
     ticket_results, late_results, random_results = lth.run_lth(
         model, init_state, ViT, acc, train_loader, test_loader, device,
         rounds=8, epochs=20, lr=1e-3, rate=0.35, scope="global",
-        rewind_state=rewind_state, rewind_epoch=2, make_opt=make_opt, lr_at=lr_at
+        rewind_state=rewind_state, rewind_epoch=2, make_opt=make_opt, lr_at=lr_at,
+        save_dir="../checkpoints/04_vit"
     )
     return late_results, random_results, ticket_results
 

@@ -15,6 +15,7 @@ apply_masks pone en 0 los pesos podados; se llama tras cada paso del optimizador
 """
 
 import copy
+import os
 
 import torch
 from torch import nn
@@ -83,8 +84,10 @@ def sparsity_report(masks):
 # Entrena un modelo podado desde cero (optimizador nuevo), regresa la accuracy final en prueba
 # make_opt: función que crea el optimizador (por defecto Adam con lr)
 # lr_at: función época -> lr (por defecto lr constante), start_epoch: época del schedule donde empieza
-def train_model(model, masks, train_loader, test_loader, device, epochs, lr, make_opt=None, lr_at=None, start_epoch=0):
-    loss_fn = nn.CrossEntropyLoss()
+# label_smoothing: suavizado de etiquetas de la pérdida (0 = entropía cruzada normal)
+# batch_tf: función (x, y) -> (x, y) que se aplica a cada batch de entrenamiento, por ejemplo mixup / cutmix
+def train_model(model, masks, train_loader, test_loader, device, epochs, lr, make_opt=None, lr_at=None, start_epoch=0, label_smoothing=0.0, batch_tf=None):
+    loss_fn = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
     opt = make_opt(model) if make_opt else torch.optim.Adam(model.parameters(), lr)
 
     for e in range(epochs):
@@ -94,6 +97,8 @@ def train_model(model, masks, train_loader, test_loader, device, epochs, lr, mak
         model.train()
         for x, y in train_loader:
             x, y = x.to(device), y.to(device)
+            if batch_tf:
+                x, y = batch_tf(x, y)
             loss = loss_fn(model(x), y)
             opt.zero_grad()
             loss.backward()
@@ -110,13 +115,20 @@ def train_model(model, masks, train_loader, test_loader, device, epochs, lr, mak
     return correct / len(test_loader.dataset)
 
 
+# Copia del state_dict en cpu
+def _cpu_state(model):
+    return {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+
+
 # Iterative Magnitude Pruning: podar, regresar a los pesos iniciales, re-entrenar y repetir
 # init_state: pesos a los que se regresa tras podar (inicialización o una época temprana)
 # **train_args: se pasan a train_model (make_opt, lr_at, start_epoch)
-def run_imp(trained_model, init_state, acc, train_loader, test_loader, device, rounds, epochs, lr, rate=0.2, scope="layer", skip=(), **train_args):
+# save_dir, tag: si se da save_dir, guarda cada ronda en cuanto termina (ver save_round)
+def run_imp(trained_model, init_state, acc, train_loader, test_loader, device, rounds, epochs, lr, rate=0.2, scope="layer", skip=(), save_dir=None, tag="ticket", **train_args):
     masks = make_masks(trained_model, skip)
     results = [{"round": 0, "weights_left": 1.0, "acc": acc}]
     all_masks = [masks]
+    save_round(save_dir, tag, 0, 1.0, acc, masks, trained_model)
 
     for r in range(1, rounds + 1):
         # Cortar el 20% de menor magnitud de los sobrevivientes
@@ -129,6 +141,7 @@ def run_imp(trained_model, init_state, acc, train_loader, test_loader, device, r
         left = sparsity_report(masks)
         results.append({"round": r, "weights_left": left, "acc": acc})
         all_masks.append(masks)
+        save_round(save_dir, tag, r, left, acc, masks, trained_model)
         print(f"Round {r}: {left:.1%} left, acc = {acc:.4f}")
 
     return results, all_masks
@@ -150,36 +163,80 @@ def run_imp(trained_model, init_state, acc, train_loader, test_loader, device, r
 # rate         fracción de pesos que sobreviven que se poda en cada ronda (0.2 = 20%)
 # scope        "layer" (un corte por capa) o "global" (un corte para toda la red)
 # skip         prefijos de capas que no se podan, por ejemplo ("fc",)
+# save_dir     carpeta (por ejemplo ../checkpoints/02_cnn) donde se guarda un .pt por ronda y por curva (ticket/late/random),
+#              con el % de pesos en el nombre, más base.pt con los pesos denso / iniciales / de rewind
 # rewind_state, rewind_epoch   pesos guardados tras rewind_epoch épocas del entrenamiento denso
 # make_opt, lr_at              optimizador y schedule de lr (por defecto Adam con lr constante)
 def run_lth(model, init_state, make_model, acc, train_loader, test_loader, device, rounds, epochs, lr,
-            rate=0.2, scope="layer", skip=(), rewind_state=None, rewind_epoch=0, **train_args):
+            rate=0.2, scope="layer", skip=(), rewind_state=None, rewind_epoch=0, save_dir=None, **train_args):
+    save_base(save_dir, model, init_state, rewind_state, rewind_epoch, scope=scope, rate=rate, skip=skip)
     print("Winning tickets:")
     ticket_results, all_masks = run_imp(copy.deepcopy(model), init_state, acc, train_loader, test_loader, device,
-                                        rounds, epochs, lr, rate, scope, skip, **train_args)
+                                        rounds, epochs, lr, rate, scope, skip, save_dir=save_dir, tag="ticket", **train_args)
     print("Random reinit:")
-    random_results = run_random_control(make_model, all_masks, train_loader, test_loader, device, epochs, lr, **train_args)
+    random_results = run_random_control(make_model, all_masks, train_loader, test_loader, device, epochs, lr,
+                                        save_dir=save_dir, **train_args)
 
     if rewind_state is None:
         return ticket_results, random_results
 
     print(f"Winning tickets (rewind a la época {rewind_epoch}):")
     late_results, _ = run_imp(copy.deepcopy(model), rewind_state, acc, train_loader, test_loader, device,
-                              rounds, epochs - rewind_epoch, lr, rate, scope, skip, start_epoch=rewind_epoch,
+                              rounds, epochs - rewind_epoch, lr, rate, scope, skip, save_dir=save_dir, tag="late",
+                              start_epoch=rewind_epoch,
                               **{k: v for k, v in train_args.items() if k != "start_epoch"})
     return ticket_results, late_results, random_results
 
 
+# Guarda base.pt: pesos del modelo denso entrenado, iniciales y de rewind (más los ajustes de poda en **meta)
+# Se llama justo después del entrenamiento denso para que no se pierdan aunque no se corra el IMP
+def save_base(save_dir, model, init_state, rewind_state=None, rewind_epoch=0, **meta):
+    if not save_dir:
+        return
+    os.makedirs(save_dir, exist_ok=True)
+    torch.save({"dense": _cpu_state(model), "init": init_state, "rewind": rewind_state,
+                "rewind_epoch": rewind_epoch, **meta}, os.path.join(save_dir, "base.pt"))
+
+
+# Guarda una ronda en <save_dir>/<tag>_r<ronda>_<% de pesos>.pt, justo al terminar la ronda
+# Contenido: model (state_dict con la máscara aplicada), masks (bool), acc, weights_left, round, tag
+# y, en la curva random, init_model (los pesos aleatorios con los que empezó, con la máscara aplicada)
+def save_round(save_dir, tag, r, left, acc, masks, model, **extra):
+    if not save_dir:
+        return
+    path = os.path.join(save_dir, f"{tag}_r{r:02d}_{left * 100:.1f}pct.pt")
+    torch.save({"model": _cpu_state(model), "masks": {n: m.cpu().bool() for n, m in masks.items()},
+                "acc": acc, "weights_left": left, "round": r, "tag": tag, **extra}, path)
+
+
+# Lista los checkpoints de una carpeta: (tag, ronda, % de pesos, acc, ruta), ordenados
+def list_checkpoints(save_dir):
+    out = []
+    for f in sorted(os.listdir(save_dir)):
+        if f == "base.pt":
+            continue
+        ck = torch.load(os.path.join(save_dir, f), map_location="cpu")
+        out.append((ck["tag"], ck["round"], ck["weights_left"] * 100, ck["acc"], os.path.join(save_dir, f)))
+    return out
+
+
+# Carga un checkpoint: ck["model"] para make_model().load_state_dict, ck["masks"] para la máscara
+def load_checkpoint(path):
+    return torch.load(path, map_location="cpu")
+
+
 # Mismas máscaras que los tickets, pero con una inicialización aleatoria nueva
-def run_random_control(make_model, all_masks, train_loader, test_loader, device, epochs, lr, **train_args):
+def run_random_control(make_model, all_masks, train_loader, test_loader, device, epochs, lr, save_dir=None, **train_args):
     results = []
     for r, masks in enumerate(all_masks):
         m = make_model().to(device)
         apply_masks(m, masks)
+        start_state = _cpu_state(m)
         acc = train_model(m, masks, train_loader, test_loader, device, epochs, lr, **train_args)
 
         left = sparsity_report(masks)
         results.append({"round": r, "weights_left": left, "acc": acc})
+        save_round(save_dir, "random", r, left, acc, masks, m, init_model=start_state)
         print(f"Round {r}: {left:.1%} left, acc = {acc:.4f}")
 
     return results

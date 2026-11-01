@@ -310,10 +310,18 @@ def _(mo):
 
 
 @app.cell
+def _(acc, init_state, lth, model):
+    # Guardar el modelo denso entrenado y sus pesos iniciales (acc fuerza que sea después del entrenamiento)
+    lth.save_base("../checkpoints/01_mlp", model, init_state)
+    return
+
+
+@app.cell
 def _(MLP, acc, device, init_state, lth, model, test_loader, train_loader):
     ticket_results, random_results = lth.run_lth(
         model, init_state, MLP, acc, train_loader, test_loader, device,
-        rounds=15, epochs=5, lr=1.2e-3
+        rounds=15, epochs=5, lr=1.2e-3,
+        save_dir="../checkpoints/01_mlp"
     )
     return random_results, ticket_results
 
