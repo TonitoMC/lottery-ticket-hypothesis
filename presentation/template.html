@@ -310,7 +310,7 @@ try {
   const m = DATA.mlp, c = DATA.cnn, r = DATA.resnet, v = DATA.vit, l = DATA.vitlong;
   set('t-mlp', `<b>MLP</b><p class="tiny">Capas totalmente conectadas sobre dígitos (MNIST). Con solo <b>${m.ticket.at(-1)[0]}%</b> de los pesos el ticket mantiene <span class="hl">${f(m.ticket.at(-1)[1])}</span> (la red completa: ${f(m.ticket[0][1])}). La misma estructura con pesos nuevos baja a <span class="o">${f(m.random.at(-1)[1])}</span>: los valores iniciales importan.</p>`);
   const best = Math.max(...c.ticket.map(p => p[1])), cl = c.ticket.at(-1), cr = c.random.at(-1);
-  set('t-cnn', `<b>CNN</b><p class="tiny">Convoluciones sobre imágenes (CIFAR-10). El ticket llega a <span class="hl">${f(best)}</span>, por encima de la red completa (${f(c.ticket[0][1])}), y le gana al control en casi todo el rango. En el punto más chico (${cl[0]}% de los pesos): ticket ${f(cl[1])} vs. control ${f(cr[1])}` + (cl[1] < cr[1] ? ' <span class="o">(el ticket cae por debajo; punto en revisión)</span>.' : '.') + '</p>');
+  set('t-cnn', `<b>CNN</b><p class="tiny">Convoluciones sobre imágenes (CIFAR-10). El ticket llega a <span class="hl">${f(best)}</span>, por encima de la red completa (${f(c.ticket[0][1])}), y le gana al control en casi todo el rango. En el punto más chico (${cl[0]}% de los pesos): ticket ${f(cl[1])} vs. control ${f(cr[1])}` + (cl[1] < cr[1] ? ' <span class="o">(el ticket cae por debajo; se repitió en una segunda corrida)</span>. Con poda por capa todas las capas conservan ~10.7%: en la primera convolución 7 de 64 filtros quedan vacíos y el 40% de las neuronas ocultas ya no llega a la salida.' : '.') + '</p>');
   set('t-resnet', `<b>ResNet</b><p class="tiny">20 capas con conexiones residuales. Con ${r.ticket.at(-1)[0]}% de los pesos, regresar a θ₀ da <span class="hl">${f(r.ticket.at(-1)[1])}</span>, igual que el control (${f(r.random.at(-1)[1])}). <b>Rebobinar a la época 1</b> da <span class="g">${f(r.ticket_late.at(-1)[1])}</span> (red completa: ${f(r.ticket[0][1])}).</p>`);
   const v11 = at(v.ticket, 11), vr = at(v.random, 11);
   set('t-vit', `<b>ViT</b><p class="tiny">Transformer que parte la imagen en 64 parches. Con ~11% de los pesos el ticket tiene <span class="hl">${f(v11[1])}</span>, más que la red completa (${f(v.ticket[0][1])}); el control cae a <span class="o">${f(vr[1])}</span>. Rebobinar no mejora. Posible razón (sin probar): el <i>warmup</i>, un learning rate pequeño al inicio, ya estabiliza el arranque.</p>`);
@@ -320,6 +320,7 @@ try {
   }
 } catch (e) { console.warn(e); }
 if (DATA.cnn) set('h-cnn', '');
+
 if (DATA.vitlong && DATA.vitlong_partial) set('h-vitlong', todo('corrida en curso'));
 
 // Esqueletos de las figuras pendientes (no son datos)

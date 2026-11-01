@@ -211,7 +211,7 @@ def _(mo):
     ## 4. Resultados por arquitectura
     **MLP / MNIST.** El ticket se mantiene entre 97.5% y 98.2% hasta 3.5% de los pesos, a la par de la red densa (97.7%), mientras que la reinicialización aleatoria cae a 96.0%. Regresar a la inicialización ya basta; no se probó el rewinding aquí.
 
-    **CNN / CIFAR-10.** En la primera corrida el ticket supera a la red densa (73.6%) con un máximo de 75.9% a 64% de los pesos, y le gana a la reinicialización aleatoria entre 80% y ~33%. A 10.7% el ticket colapsa a 49.7%, por debajo del control aleatorio (61.0%). **[PENDIENTE]** Repetición de la corrida para saber si ese punto es ruido; la tabla de abajo se actualiza con la nueva corrida.
+    **CNN / CIFAR-10.** En la primera corrida el ticket supera a la red densa (73.6%) con un máximo de 75.9% a 64% de los pesos, y le gana a la reinicialización aleatoria entre 80% y ~33%. A 10.7% el ticket colapsa a 49.7%, por debajo del control aleatorio (61.0%). La repetición de la corrida reproduce el colapso (53.0% vs. 61.2%), así que no es ruido. La CNN poda **por capa**, de modo que todas las capas conservan ~10.7% de sus pesos; al inspeccionar la máscara (06), en la primera convolución 7 de 64 filtros quedan completamente vacíos y 102 de las 256 neuronas ocultas no tienen ningún peso hacia la salida. Esa es una explicación posible, no probada; el notebook 02b repite el experimento con poda global.
 
     **ResNet / CIFAR-10.** Con lr 0.1 el ticket que regresa a la época 0 **no** supera al aleatorio (86.3% vs. 86.5% con 10.7% de los pesos), igual que en [1]. Rebobinar a la época 1 recupera casi toda la accuracy: 89.6% con 10.7% de los pesos, contra 90.9% de la red densa.
 

@@ -195,6 +195,92 @@ def _(at_target, ckpt, curves, plt):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
+    ### Forma de las máscaras
+    La fracción viva por capa no dice **dónde** quedaron los pesos. Aquí se mira la estructura de la máscara del ticket al porcentaje objetivo:
+
+    - **Capas convolucionales** (`[filtros, canales, alto, ancho]`): qué posiciones del kernel sobreviven y cuántos filtros quedaron completamente vacíos (un filtro vacío es una unidad muerta).
+    - **Capas densas** (`[salidas, entradas]`): cuántas neuronas de salida o de entrada quedaron sin ningún peso. Si la capa lee una imagen de 784 entradas (MLP), la fracción viva por entrada se dibuja como imagen de 28x28.
+    - El histograma muestra cuántos pesos conserva cada unidad de salida. Poda no estructurada que reparte parejo da un pico alrededor de la fracción global; unidades casi vacías o casi llenas indican poda concentrada.
+    """)
+    return
+
+
+@app.cell
+def _(at_target, ckpt, mo):
+    _r, _pct, _, _path = at_target("ticket")
+    masks_t = ckpt(_path)["masks"]
+    _rows = ["| Capa | Forma | Pesos vivos | Unidades de salida vacías | Entradas vacías |", "|---|---|---:|---:|---:|"]
+    for _n, _m in masks_t.items():
+        _alive = _m.float().mean().item()
+        _out = _m.reshape(_m.shape[0], -1).any(dim=1)
+        _inp = _m.transpose(0, 1).reshape(_m.shape[1], -1).any(dim=1)
+        _rows.append(f"| `{_n}` | {tuple(_m.shape)} | {int(_m.sum())} / {_m.numel()} ({_alive:.1%}) | {int((~_out).sum())} / {len(_out)} | {int((~_inp).sum())} / {len(_inp)} |")
+    mo.md(f"**Ticket con {_pct:.1f}% de los pesos (ronda {_r})**\n\n" + "\n".join(_rows))
+    return (masks_t,)
+
+
+@app.cell
+def _(masks_t, np, plt):
+    _names = list(masks_t.keys())
+    _fig, _axes = plt.subplots(len(_names), 2, figsize=(9, 2.3 * len(_names)), squeeze=False)
+    for _i, _n in enumerate(_names):
+        _m = masks_t[_n].float()
+        _a, _b = _axes[_i]
+        if _m.dim() == 4:
+            # Fracción viva por posición del kernel
+            _k = _m.mean(dim=(0, 1)).numpy()
+            _a.imshow(_k, vmin=0, vmax=1, cmap="viridis")
+            for (_y, _x), _v in np.ndenumerate(_k):
+                _a.text(_x, _y, f"{_v:.2f}", ha="center", va="center", fontsize=7, color="w")
+            _a.set_title(f"{_n}: posiciones del kernel", fontsize=8)
+        elif _m.shape[1] == 784:
+            _a.imshow(_m.mean(dim=0).reshape(28, 28).numpy(), vmin=0, vmax=1, cmap="viridis")
+            _a.set_title(f"{_n}: fracción viva por pixel de entrada", fontsize=8)
+        else:
+            _a.plot(np.sort(_m.mean(dim=0).numpy()))
+            _a.set_ylim(0, 1)
+            _a.set_title(f"{_n}: fracción viva por entrada (ordenada)", fontsize=8)
+        _per_unit = _m.reshape(_m.shape[0], -1).mean(dim=1).numpy()
+        _b.hist(_per_unit, bins=30, range=(0, 1))
+        _b.axvline(_m.mean().item(), color="r", lw=1)
+        _b.set_title(f"{_n}: pesos vivos por unidad de salida (línea roja: promedio de la capa)", fontsize=8)
+        _a.tick_params(labelsize=7); _b.tick_params(labelsize=7)
+    _fig.tight_layout()
+    _fig
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### ¿Los sobrevivientes ya eran grandes en la inicialización?
+    La poda conserva los pesos de mayor magnitud **después de entrenar**. Aquí se compara el valor **inicial** $|\theta_0|$ de los pesos que sobrevivieron con el de los podados, por capa. Un cociente cercano a 1 significa que la inicialización casi no predice qué sobrevive (el entrenamiento decide); mayor a 1, que los pesos que ya empezaban grandes tienen más probabilidad de quedarse.
+    """)
+    return
+
+
+@app.cell
+def _(base, masks_t, plt):
+    _names = list(masks_t.keys())
+    _ratio = []
+    for _n in _names:
+        _w0 = base["init"][_n].abs()
+        _m = masks_t[_n]
+        _ratio.append((_w0[_m].mean() / _w0[~_m].mean()).item())
+    _fig, _ax = plt.subplots(figsize=(8, 3.2))
+    _ax.bar(range(len(_names)), _ratio)
+    _ax.axhline(1, color="k", lw=0.8)
+    _ax.set_xticks(range(len(_names)))
+    _ax.set_xticklabels(_names, rotation=90, fontsize=7)
+    _ax.set_ylabel("media |θ₀| sobrevivientes / podados")
+    _fig.tight_layout()
+    _fig
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     ## Modelo y datos (ViT)
     La arquitectura es la de 04/05. Se evalúa con el conjunto de prueba completo, sin aumento de datos y en modo evaluación. Para los mapas de atención se usan 10 imágenes fijas, una por clase.
     """)
