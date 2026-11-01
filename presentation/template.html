@@ -76,16 +76,16 @@ code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; font-size: 
 
 <section class="slide" id="s1">
   <div id="net-hero" style="position:absolute; right:3vw; top:10vh; bottom:12vh; width:42vw; opacity:.85"></div>
-  <div style="margin:auto 0; position:relative; max-width:50vw">
-    <div class="kicker">Proyecto Final · Deep Learning</div>
-    <h1 style="margin-top:2vh">¿Cuándo aparece el <span class="g">boleto ganador</span> de una red?</h1>
-    <p class="sub" style="margin-top:3vh">La Lottery Ticket Hypothesis en un MLP, una CNN, una ResNet y un Vision Transformer</p>
-    <p style="margin-top:5vh">José Antonio Mérida<br><span class="sub">2 de noviembre de 2026</span></p>
+  <div style="margin:auto 0; position:relative; max-width:52vw">
+    <div class="kicker">Deep Learning y Sistemas Inteligentes · CC3092 · Proyecto Final</div>
+    <h1 style="margin-top:2vh">Lottery Ticket Hypothesis: ¿cuándo hace falta <span class="g">rebobinar</span>, y cómo se <span class="hl">poda</span>?</h1>
+    <p class="sub" style="margin-top:3vh">MLP, CNN, ResNet y ViT: dónde existe el boleto ganador, qué cambia con la complejidad, y por qué importa podar por capa o globalmente</p>
+    <p style="margin-top:5vh">José Antonio Mérida Castejón<br><span class="sub">2 de noviembre de 2026</span></p>
   </div>
 </section>
 
 <section class="slide" id="s2">
-  <div class="kicker">La idea · Frankle &amp; Carbin, ICLR 2019 [1]</div>
+  <div class="kicker">1 · Problema · Frankle &amp; Carbin, ICLR 2019 [1]</div>
   <h2>Casi todos los pesos sobran: queda un boleto ganador</h2>
   <div class="body">
     <div class="row" style="grid-template-columns: 1fr 1fr 1.3fr">
@@ -111,40 +111,96 @@ code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; font-size: 
           <div class="pt" style="left:97%; background:var(--muted)"></div><div class="lab" style="left:90%; top:0.5vh; color:var(--muted)"><b>θ_T: final</b><br>red entrenada</div>
         </div>
       </div>
-      <div class="card" style="justify-content:center"><p><b>Mi hipótesis:</b> mientras más compleja la red, más tarde (mayor <i>k</i>) se "fija" el ticket. Lo pruebo en un MLP, una CNN, una ResNet y un ViT.</p></div>
+      <div class="card" style="justify-content:center"><p><b>El problema:</b> en redes grandes, regresar a θ₀ deja de bastar con lr alto y hay que rebobinar a θₖ [2]. ¿Qué cambia al subir la complejidad (MLP → CNN → ResNet → ViT), y qué decisiones de la poda cambian el resultado?</p></div>
     </div>
   </div>
 </section>
 
 <section class="slide" id="s3">
-  <div class="kicker">Cómo lo construí · herramientas</div>
-  <h2>Los modelos y los loops los escribí a mano; la IA ayudó con el resto</h2>
+  <div class="kicker">1 · Hipótesis</div>
+  <h2>Cuatro hipótesis, y qué tan directamente se prueba cada una</h2>
+  <div class="body">
+    <div class="row four">
+      <div class="card"><div class="big hl">H0</div><h3>Existencia</h3><p class="tiny">En cada arquitectura hay una subred pequeña que iguala a la densa y le gana a la misma máscara con pesos nuevos.</p><span class="chip me">prueba directa</span></div>
+      <div class="card"><div class="big g">H1</div><h3>Complejidad → rewind</h3><p class="tiny">Mientras más compleja la red, más tarde en el entrenamiento aparece el ticket: hay que rebobinar.</p><span class="chip">prueba parcial</span><p class="tiny">1-2 puntos de rewind por arquitectura; sin barrido de <i>k</i>.</p></div>
+      <div class="card"><div class="big o">H2</div><h3>Warmup ≈ rewinding</h3><p class="tiny">El warmup estabiliza el arranque, así que una red con warmup necesitaría rebobinar menos.</p><span class="chip todo">solo observacional</span><p class="tiny">El warmup nunca se varió: está confundido con optimizador y datos.</p></div>
+      <div class="card"><div class="big" style="color:var(--ai)">H3</div><h3>Alcance de la poda</h3><p class="tiny"><b>a)</b> En la CNN, global &gt; por capa porque no vacía las capas pequeñas.<br><b>b)</b> Las redes grandes necesitan poda global.</p><span class="chip me">a) directa</span> <span class="chip todo">b) no probada</span></div>
+    </div>
+    <div class="card" style="border-left:4px solid var(--rewind)">
+      <p><b>Enfoque.</b> El <span class="g">ViT</span> es donde más profundizamos: dos corridas (20 y 100 épocas), tres curvas, validación de su baseline e inspección completa de máscaras, atención y gradientes. La <span class="hl">CNN</span> es el caso donde se comparó directamente poda por capa y global. El MLP y la ResNet son puntos de referencia.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="s4">
+  <div class="kicker">3-4 · Diseño y solución</div>
+  <h2>Cuatro arquitecturas, un mismo código de poda (<code>lth.py</code>)</h2>
+  <div class="body">
+    <div class="row three">
+      <div class="card">
+        <h3>CNN · Conv-4, 2.4M pesos</h3>
+        <div class="arch">
+          <span class="bx">2× conv 64</span><span class="ar">→</span><span class="bx">pool</span><span class="ar">→</span><span class="bx">2× conv 128</span><span class="ar">→</span><span class="bx">pool</span><span class="ar">→</span><span class="bx">3× <code>fc</code></span>
+        </div>
+        <p class="tiny">86% de los pesos están en la primera capa lineal (8192→256); la primera convolución tiene solo 1,728. Se poda <b>por capa</b> (02) o <b>global</b> (02b).</p>
+      </div>
+      <div class="card">
+        <h3>ResNet · 20 capas, 274K pesos</h3>
+        <div class="arch">
+          <span class="bx">conv 3×3</span><span class="ar">→</span><span class="bx">3 bloques<br>16 canales</span><span class="ar">→</span><span class="bx">3 bloques<br>32</span><span class="ar">→</span><span class="bx">3 bloques<br>64</span><span class="ar">→</span><span class="bx">pool + <code>fc</code></span>
+        </div>
+        <p class="tiny">Cada bloque suma su entrada a la salida (<i>skip connection</i>). Se podan solo las convoluciones (<b>global</b>); <code>fc</code> queda intacta. lr 0.1, sin warmup.</p>
+      </div>
+      <div class="card">
+        <h3>ViT · 6 bloques, dim 192, 3 cabezas</h3>
+        <div class="arch">
+          <span class="bx">imagen 32×32</span><span class="ar">→</span><span class="bx"><code>patch_embed</code><br>64 parches 4×4 + [CLS]</span><span class="ar">→</span><span class="bx">6 bloques</span><span class="ar">→</span><span class="bx"><code>head</code> sobre [CLS]</span>
+        </div>
+        <p class="tiny">Cada parche es un token; el [CLS] "mira" a los 64 parches (de ahí los mapas de atención 8×8). Poda <b>global</b> sobre todas las capas; con warmup.</p>
+      </div>
+    </div>
+    <table class="tb">
+      <tr><th></th><th>Optimizador</th><th>Épocas/ronda</th><th>Rondas</th><th>Poda</th><th>Rewind</th><th>Qué prueba</th></tr>
+      <tr><td>MLP · MNIST</td><td>Adam 1.2e-3</td><td>5</td><td>15</td><td>por capa</td><td>–</td><td>H0</td></tr>
+      <tr><td>CNN · CIFAR-10 (02)</td><td>Adam 3e-4</td><td>30</td><td>10</td><td>por capa</td><td>–</td><td>H0, H3a</td></tr>
+      <tr><td>CNN · CIFAR-10 (02b)</td><td>Adam 3e-4</td><td>30</td><td>10</td><td class="gg">global</td><td>–</td><td class="gg">H3a: solo cambia la poda</td></tr>
+      <tr><td>ResNet-20</td><td>SGD lr 0.1, sin warmup</td><td>77</td><td>10</td><td>global (solo conv)</td><td>época 1</td><td>H0, H1, H2</td></tr>
+      <tr><td>ViT (04)</td><td>AdamW 1e-3, warmup 2</td><td>20</td><td>8</td><td>global</td><td>época 2</td><td>H0, H1, H2</td></tr>
+      <tr><td>ViT largo (05)</td><td>AdamW 1e-3, warmup 5, aumento fuerte</td><td>100</td><td>8</td><td>global</td><td>época 5</td><td>H0, H1 + inspección</td></tr>
+    </table>
+    <p class="tiny">02b repite 02 cambiando <b>solo</b> el alcance de la poda. 05 repite 04 porque su baseline (78.9%) parecía subentrenado. Una semilla por experimento.</p>
+  </div>
+</section>
+
+<section class="slide" id="s5">
+  <div class="kicker">5 · Herramientas y uso de IA</div>
+  <h2>Los modelos y <code>lth.py</code> son míos; la IA hizo checkpoints, gran parte de los experimentos y las figuras</h2>
   <div class="body">
     <div class="row three">
       <div class="card" style="border-top:4px solid var(--human)">
         <h3 class="g">Mi parte</h3>
         <ul style="display:flex;flex-direction:column;gap:0.5vh;padding-left:1.2em;margin:0">
           <li class="tiny">Tema, pregunta e hipótesis</li>
-          <li class="tiny">Los 4 modelos con <code>nn.Module</code></li>
-          <li class="tiny">Loops de entrenamiento y evaluación</li>
-          <li class="tiny">El código de poda <code>lth.py</code> (máscaras, IMP, control)</li>
-          <li class="tiny">Correr los experimentos, el análisis y la interpretación</li>
+          <li class="tiny">Los 4 modelos (<code>nn.Module</code>) y los loops de entrenamiento / evaluación</li>
+          <li class="tiny"><code>lth.py</code>: máscaras, IMP, rewinding, control aleatorio</li>
+          <li class="tiny">Correr y verificar los experimentos; análisis y conclusiones</li>
         </ul>
       </div>
       <div class="card" style="border-top:4px solid var(--ai)">
-        <h3 style="color:var(--ai)">Apoyo de la IA</h3>
+        <h3 style="color:var(--ai)">Apoyo de la IA (Claude Code)</h3>
         <ul style="display:flex;flex-direction:column;gap:0.5vh;padding-left:1.2em;margin:0">
           <li class="tiny">Guardado de pesos y máscaras (checkpoints)</li>
-          <li class="tiny">Todas las visualizaciones</li>
-          <li class="tiny">Revisión de código e hiperparámetros</li>
-          <li class="tiny">Estructura del reporte y de esta presentación</li>
+          <li class="tiny">Implementación de la mayoría de los cuadernos de experimentos (yo verifiqué lo central)</li>
+          <li class="tiny">Visualizaciones, diagramas y tablas del informe</li>
+          <li class="tiny">Revisión de código e hiperparámetros contra las fuentes</li>
+          <li class="tiny">Borradores de interpretación y las preguntas de discusión (marcadas como IA en el informe)</li>
         </ul>
       </div>
       <div class="card">
         <h3>Herramientas nuevas</h3>
-        <p class="tiny"><b>marimo:</b> notebooks reactivos guardados como <code>.py</code> (buenos para git), exportables a HTML.</p>
-        <p class="tiny"><b>uv:</b> entornos de Python reproducibles (<code>uv.lock</code>).</p>
-        <p class="tiny"><b>Claude Code:</b> asistente en la terminal que lee el repo, edita y corre comandos con mi permiso.</p>
+        <p class="tiny"><b>marimo:</b> notebooks reactivos guardados como <code>.py</code>, exportables a HTML.</p>
+        <p class="tiny"><b>uv:</b> entornos reproducibles (<code>uv.lock</code>).</p>
+        <p class="tiny"><b>Claude Code:</b> asistente en la terminal que lee el repo, edita y corre comandos con permiso.</p>
       </div>
     </div>
     <div class="row three">
@@ -152,134 +208,109 @@ code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; font-size: 
       <div class="bubble">"I wanna handpick from results to see what changes… also saving % of original params."</div>
       <div class="bubble">"ViT longer has to have more epochs + maybe more aggressive data augmentation."</div>
     </div>
-    <p class="tiny">Evolución: MLP → CNN → ResNet y ViT → comparación y rewinding → ViT más largo e inspección de máscaras. <span class="chip todo">Agregar los prompts de sesiones anteriores</span></p>
-  </div>
-</section>
-
-<section class="slide" id="s4">
-  <div class="kicker">Las dos arquitecturas grandes · para leer las figuras</div>
-  <h2>ResNet y ViT: qué se poda, y cómo leer las figuras</h2>
-  <div class="body">
-    <div class="row two">
-      <div class="card">
-        <h3>ResNet · 20 capas, 274K pesos</h3>
-        <div class="arch">
-          <span class="bx">conv 3×3</span><span class="ar">→</span><span class="bx">3 bloques<br>16 canales</span><span class="ar">→</span><span class="bx">3 bloques<br>32</span><span class="ar">→</span><span class="bx">3 bloques<br>64</span><span class="ar">→</span><span class="bx">pool + <code>fc</code></span>
-        </div>
-        <div class="arch">
-          <span class="bx">x</span><span class="ar">→</span><span class="bx">conv→BN→ReLU→conv→BN</span><span class="ar">→</span><span class="bx ok">+ x</span><span class="ar">→</span><span class="bx">ReLU</span>
-        </div>
-        <p class="tiny">Cada bloque suma su entrada a la salida (<i>skip connection</i>): el gradiente llega fácil a las primeras capas. Se podan solo las convoluciones, con poda <b>global</b>; <code>fc</code> (640 pesos) queda intacta. Entrena con lr 0.1, sin warmup.</p>
-      </div>
-      <div class="card">
-        <h3>ViT · 6 bloques, dim 192, 3 cabezas</h3>
-        <div class="arch">
-          <span class="bx">imagen 32×32</span><span class="ar">→</span><span class="bx"><code>patch_embed</code><br>64 parches 4×4 + [CLS]</span><span class="ar">→</span><span class="bx">6 bloques</span><span class="ar">→</span><span class="bx"><code>head</code> sobre [CLS]</span>
-        </div>
-        <div class="arch">
-          <span class="bx">LayerNorm</span><span class="ar">→</span><span class="bx"><code>qkv</code> → atención → <code>proj</code></span><span class="ar">→</span><span class="bx">LayerNorm</span><span class="ar">→</span><span class="bx"><code>mlp.0</code> → GELU → <code>mlp.2</code></span>
-        </div>
-        <p class="tiny">Cada parche es un token. En cada bloque, el [CLS] "mira" a los 64 parches (los mapas de atención son esa fila, en una cuadrícula de 8×8). Poda <b>global</b> sobre todas las capas, con warmup de lr.</p>
-      </div>
-    </div>
-    <table class="tb">
-      <tr><th></th><th>Optimizador</th><th>Épocas por ronda</th><th>Rondas</th><th>Poda</th><th>Punto de rewind</th></tr>
-      <tr><td>MLP · MNIST</td><td>Adam 1.2e-3</td><td>5</td><td>15</td><td>por capa</td><td>–</td></tr>
-      <tr><td>CNN · CIFAR-10</td><td>Adam 3e-4</td><td>30</td><td>10</td><td>por capa</td><td>–</td></tr>
-      <tr><td>ResNet</td><td>SGD lr 0.1 (÷10 dos veces)</td><td>77</td><td>10</td><td>global, solo conv</td><td>época 1</td></tr>
-      <tr><td>ViT</td><td>AdamW 1e-3, warmup 2 épocas</td><td>20</td><td>8</td><td>global</td><td>época 2</td></tr>
-      <tr><td>ViT largo</td><td>AdamW 1e-3, warmup 5, aumento fuerte</td><td>100</td><td>8</td><td>global</td><td>época 5</td></tr>
-    </table>
-    <p class="tiny">Los nombres en <code>código</code> son las filas de las figuras de inspección: cuántos pesos sobreviven en cada tipo de capa. Las arquitecturas difieren en más que su complejidad (optimizador, schedule, poda), y eso limita lo que se puede concluir.</p>
-  </div>
-</section>
-
-<section class="slide" id="s5">
-  <div class="kicker">Resultados · 1 de 3</div>
-  <h2>En las redes pequeñas, el boleto ya está en la inicialización</h2>
-  <div class="body">
-    <div class="legend"><span><i style="color:var(--ticket)"></i>Ticket (regresa a θ₀)</span><span><i style="color:var(--random);border-top-style:dashed"></i>Control: pesos nuevos</span></div>
-    <p class="tiny">Eje x: % de pesos que quedan (escala log; a la derecha la red es más chica). Eje y: accuracy de prueba. Si la línea azul se mantiene arriba y la naranja cae, el ticket funciona.</p>
-    <div class="row two">
-      <div class="chart"><h3>MLP · MNIST</h3><div id="c-mlp"></div></div>
-      <div class="chart"><h3>CNN · CIFAR-10 <span id="h-cnn"></span></h3><div id="c-cnn"></div></div>
-    </div>
-    <div class="read"><div id="t-mlp"></div><div id="t-cnn"></div></div>
+    <p class="tiny"><b>Evaluación crítica:</b> cada número del informe sale de <code>results/*.json</code> o de los checkpoints; las explicaciones causales dicen qué experimento las probaría; las preguntas de discusión generadas por IA están marcadas. <span class="chip todo">Agregar los prompts donde la IA falló y por qué</span></p>
   </div>
 </section>
 
 <section class="slide" id="s6">
-  <div class="kicker">Resultados · 2 de 3</div>
-  <h2>La ResNet necesita rebobinar; el ViT no</h2>
-  <div class="body">
-    <div class="legend"><span><i style="color:var(--ticket)"></i>Ticket (θ₀)</span><span><i style="color:var(--rewind)"></i>Ticket con rewinding (θₖ)</span><span><i style="color:var(--random);border-top-style:dashed"></i>Control: pesos nuevos</span></div>
-    <div class="row two">
-      <div class="chart"><h3>ResNet · rewind a la época 1</h3><div id="c-resnet"></div></div>
-      <div class="chart"><h3>ViT (20 épocas) · rewind a la época 2</h3><div id="c-vit"></div></div>
+  <div class="kicker">6 · Resultados · H0 existencia</div>
+  <h2>Hay tickets en las 4 arquitecturas; la ResNet, con rewind</h2>
+  <div class="body" style="gap:1.4vh">
+    <div class="legend"><span><i style="color:var(--ticket)"></i>Ticket (θ₀)</span><span><i style="color:var(--rewind)"></i>Ticket con rewinding (θₖ)</span><span><i style="color:var(--random);border-top-style:dashed"></i>Control: pesos nuevos</span><span class="sub">Eje x: % de pesos que quedan (log); eje y: accuracy de prueba</span></div>
+    <div class="row three">
+      <div class="chart"><h3>MLP · MNIST</h3><div id="c-mlp" style="height:24vh"></div></div>
+      <div class="chart"><h3>CNN · poda por capa</h3><div id="c-cnn" style="height:24vh"></div></div>
+      <div class="chart"><h3>ResNet-20 · rewind época 1</h3><div id="c-resnet" style="height:24vh"></div></div>
     </div>
-    <div class="read"><div id="t-resnet"></div><div id="t-vit"></div></div>
+    <div class="row three">
+      <div class="chart"><h3>CNN · poda global</h3><div id="c-cnng" style="height:24vh"></div></div>
+      <div class="chart"><h3>ViT · 20 épocas</h3><div id="c-vit" style="height:24vh"></div></div>
+      <div class="chart"><h3>ViT · 100 épocas</h3><div id="c-vitlong" style="height:24vh"></div></div>
+    </div>
+    <p class="tiny">Densas: 97.7 · 73.0 / 74.0 · 90.9 · 78.9 · 86.0%. El ticket le gana al control por 5-9 puntos (más que el ruido de ±0.6 de 10,000 imágenes). ResNet: desde θ₀ queda igual al control (86.3 vs 86.5% con 10.7% de los pesos); con rewinding, 89.6%.</p>
   </div>
 </section>
 
 <section class="slide" id="s7">
-  <div class="kicker">Resultados · 3 de 3</div>
-  <h2>ViT con 100 épocas: ¿el ticket sigue por encima de la red densa?</h2>
-  <div class="body">
-    <div class="row" style="grid-template-columns: 1.6fr 1fr;">
-      <div class="chart"><h3>ViT · 100 épocas · rewind a la época 5 <span id="h-vitlong"></span></h3><div id="c-vitlong" style="height:34vh"></div></div>
+  <div class="kicker">6 · Resultados · H3 alcance de la poda (CNN)</div>
+  <h2>Por capa, la CNN pierde detectores; global, no</h2>
+  <div class="body" style="gap:1.4vh">
+    <div class="card" style="padding:0.6vh 0.8vw;height:33vh;flex:none"><img src="img/cnn_diagram.png" alt="Diagrama de la CNN" style="width:100%;height:100%;object-fit:contain"></div>
+    <div class="row" style="grid-template-columns: 1.3fr 1fr;height:42vh;flex:none">
+      <div class="card" style="padding:0.6vh 0.8vw"><img src="img/cnn_filters.png" alt="Filtros de conv1" style="width:100%;height:100%;object-fit:contain"></div>
       <div class="card" style="justify-content:center">
-        <h3>Por qué repetirlo</h3>
-        <p class="tiny">El ViT de 20 épocas llegó a 78.9% y parecía <b>subentrenado</b>, así que "el ticket supera a la red densa" podía ser solo un baseline débil.</p>
-        <p class="tiny">Ahora: 100 épocas, más aumento de datos (RandAugment, random erasing, mixup/cutmix) y label smoothing.</p>
-        <div id="t-vitlong"></div>
-        <p class="tiny" id="t-vitlong2"></p>
+        <div style="display:flex;gap:2vw;align-items:baseline"><div><span class="big o">53.0%</span><br><span class="tiny">ticket, por capa</span></div><div><span class="big g">75.7%</span><br><span class="tiny">ticket, global</span></div><div class="tiny">control: 61.2% / 69.4%</div></div>
+        <p class="tiny"><b>Filtro vacío:</b> un detector (de bordes, colores) sin ningún peso vivo; su salida es constante, así que ese detector murió. Por capa: <span class="o">7 de 64</span>, y <span class="o">102 de 256</span> neuronas de fc2 ya no llegan a la salida. Global: <span class="g">0</span>.</p>
+        <p class="tiny"><b>¿Por qué?</b> La mediana de |w| es <b>0.105</b> en conv1 y <b>0.0086</b> en fc1 (12× menos): un umbral global tira primero los pesos diminutos de fc1 y casi no toca a conv1. La poda por capa les exige perder lo mismo.</p>
+        <p class="tiny"><b>¿Y las redes grandes?</b> Consistente, <i>no probado</i>: ResNet y ViT nunca se podaron por capa.</p>
       </div>
     </div>
-    <div id="tb-vitlong"></div>
   </div>
 </section>
 
 <section class="slide" id="s8">
-  <div class="kicker">Análisis de los tickets · ViT largo, con 11.6% de los pesos · una corrida</div>
-  <h2>La poda no es pareja entre capas ni entre clases</h2>
-  <div class="body">
-    <div class="row two big9">
-      <div class="card"><h3 class="f9">La poda global deja <code>head</code> con 21% y <code>mlp.2</code> con 1%</h3>
-        <img src="img/heat.png" alt="Fracción viva por capa">
-        <p class="tiny">Fracción de pesos vivos por tipo de capa en cada ronda (ticket). Con 3.2% de los pesos en total, la capa de salida y <code>patch_embed</code> (7%) pierden mucho menos que las capas MLP.</p></div>
-      <div class="card"><h3 class="f9">El ticket mejora o iguala al denso en cada clase; el aleatorio pierde en todas</h3>
-        <img src="img/cls.png" alt="Accuracy por clase">
-        <p class="tiny">Diferencia contra el denso (86.0%). Ticket −0.4 a +4.5 puntos, rewinding +0.7 a +5.5, aleatorio hasta −14.6 (pájaro). Banda gris: ruido de ±2.5 por clase.</p></div>
+  <div class="kicker">6 · Resultados · H1 y H2 rewinding y warmup</div>
+  <h2>La ResNet necesita rewind; el ViT, solo a poca densidad</h2>
+  <div class="body" style="gap:1.6vh">
+    <div class="row" style="grid-template-columns: 1.1fr 1fr">
+      <div class="card">
+        <table class="tb">
+          <tr><th></th><th>Rewind</th><th>¿Hizo falta?</th><th>Evidencia</th></tr>
+          <tr><td>MLP</td><td>–</td><td>no</td><td>θ₀ iguala a la densa hasta 3.5% de los pesos</td></tr>
+          <tr><td>CNN</td><td>–</td><td>no</td><td>ídem (con poda global)</td></tr>
+          <tr><td>ResNet</td><td>época 1</td><td class="gg">sí</td><td>desde θ₀ = control; con rewind 89.6%</td></tr>
+          <tr><td>ViT 20 ép.</td><td>época 2</td><td>no</td><td>rewind ≈ ticket (−0.7 pts)</td></tr>
+          <tr><td>ViT 100 ép.</td><td>época 5</td><td class="hl2">solo a poca densidad</td><td>+3.4 pts a 7.5%, +3.3 a 4.9%</td></tr>
+        </table>
+        <div id="tb-vitlong"></div>
+      </div>
+      <div class="card" style="justify-content:center">
+        <h3>H1: parcial</h3>
+        <p class="tiny">MLP y CNN no rebobinan y la ResNet sí, pero el ViT, la más compleja, no lo necesita con densidades medias: la relación no es monótona en la complejidad. Solo hay uno o dos puntos de rewind por arquitectura.</p>
+        <h3 style="margin-top:1vh">H2: compatible, no probada</h3>
+        <p class="tiny">La ResNet (sin warmup) rebobina y el ViT (con warmup) casi no, igual que en [1, 2]. Pero difieren también en optimizador (SGD vs AdamW), normalización y datos. Prueba directa pendiente: ResNet con warmup y ViT sin él.</p>
+      </div>
     </div>
+    <p class="tiny">ViT largo: el baseline sube de 78.9% a 86.0% (brecha train/test ~4 puntos) y el ticket sigue por encima de la red densa hasta ~12% de los pesos, así que el resultado de 04 no era solo un baseline débil.</p>
   </div>
 </section>
 
 <section class="slide" id="s9">
-  <div class="kicker">Análisis de los tickets · ViT largo, con 11.6% de los pesos · una corrida</div>
-  <h2>Atención y gradientes: qué cambia con la inicialización</h2>
-  <div class="body">
-    <div class="row big9" style="grid-template-columns: 0.8fr 1.2fr">
-      <div class="card"><h3 class="f9">Atención del [CLS]: el aleatorio mira solo abajo</h3>
-        <img src="img/attn.png" alt="Mapas de atención" style="max-height:46vh">
-        <p class="tiny">Último bloque, 5 imágenes de prueba. Misma máscara que el ticket pero otra inicialización. <span class="o">La inicialización importa, no solo la estructura.</span></p></div>
-      <div class="card"><h3 class="f9">Gradiente en el paso 0: el rewinding parte con normas menores</h3>
-        <img src="img/grad.png" alt="Norma del gradiente">
-        <p class="tiny">Norma sobre los pesos vivos, por tipo de capa: <code>qkv</code> 0.10 con rewinding vs. 0.29 con el ticket. Posible lectura (sin probar): el warmup ya estabilizó esos pesos.</p><p class="tiny"><b>Cómo leerlo:</b> el gradiente mide cuánto cambiaría la pérdida al mover cada peso. Si es chico, el peso ya está cerca de donde la red lo quiere. El control aleatorio parte con normas parecidas al ticket (<code>head</code> 1.21 vs. 1.16), así que la diferencia entre ambos no parece estar en la escala inicial del gradiente.</p></div>
+  <div class="kicker">6 · Resultados · inspección del ViT largo (una corrida)</div>
+  <h2>ViT: poda desigual, atención distinta</h2>
+  <div class="body" style="gap:1.4vh">
+    <div class="row" style="grid-template-columns: 1.3fr 1fr;height:72vh;flex:none">
+      <div style="display:flex;flex-direction:column;gap:1.4vh;min-height:0">
+        <div class="card" style="padding:0.6vh 0.8vw;height:30vh;flex:none"><img src="img/vit_diagram.png" alt="Diagrama del ViT" style="width:100%;height:100%;object-fit:contain"></div>
+        <div class="card" style="padding:0.6vh 0.8vw;flex:1;min-height:0"><img src="img/vit_attn.png" alt="Atención" style="width:100%;height:100%;object-fit:contain"></div>
+      </div>
+      <div class="card" style="justify-content:center;gap:1.3vh">
+        <p class="tiny"><b>Capas.</b> Con 3.2% de los pesos, <code>head</code> conserva 21% y <code>patch_embed</code> 7%, y <code>mlp.2</code> solo 1.3%.<br><b class="g">Significa:</b> la poda quita primero lo redundante (las capas MLP internas); la entrada y la salida son pequeñas y cada peso pesa más. Mismo patrón que la CNN; es una hipótesis.</p>
+        <p class="tiny"><b>Atención.</b> Misma máscara que el ticket, otros pesos iniciales: el aleatorio mira abajo y falla.<br><b class="g">Significa:</b> la inicialización condiciona dónde aprende a mirar la red, no solo la máscara. Cautela: imágenes <i>elegidas</i>, una corrida, y atención no es explicación.</p>
+        <p class="tiny"><b>Clases.</b> El ticket queda dentro del ruido (±2.5) en casi todas; el aleatorio pierde en todas (hasta −14.6, pájaro).<br><b class="g">Significa:</b> la estructura sola no basta; los valores iniciales cargan información.</p>
+        <p class="tiny"><b>Gradientes.</b> El rewinding arranca con gradientes menores (qkv: 0.10 contra 0.29), coherente con que ayude a poca densidad; no se probó que sea la causa.</p>
+      </div>
     </div>
   </div>
 </section>
 
 <section class="slide" id="s10">
-  <div class="kicker">Conclusión</div>
+  <div class="kicker">7 · Conclusión</div>
   <h2>Qué podemos decir y qué no</h2>
-  <div class="body">
-    <div class="row three">
-      <div class="card"><div class="big hl">1</div><h3>Los tickets existen</h3><p class="tiny">En el MLP, la CNN y el ViT, el ticket desde θ₀ iguala o supera a la red densa y le gana al control con pesos nuevos. El ViT de 100 épocas lo confirma con un baseline mejor (86.0%); ahí el rewinding ayuda por debajo de ~8% de los pesos.</p></div>
-      <div class="card"><div class="big g">2</div><h3>La ResNet necesita rebobinar</h3><p class="tiny">Con lr 0.1, regresar a θ₀ no basta (igual que el control). Rebobinar a la época 1 recupera casi toda la accuracy.</p></div>
-      <div class="card"><div class="big o">3</div><h3>"Más compleja → más tarde": compatible, no probado</h3><p class="tiny">Hay uno o dos puntos de rewind por arquitectura, y además cambian datos, optimizador y poda. Un barrido de <i>k</i> con varias semillas queda como trabajo futuro.</p></div>
+  <div class="body" style="gap:1.6vh">
+    <table class="tb">
+      <tr><th>Hipótesis</th><th>Veredicto</th><th>Base</th></tr>
+      <tr><td>H0 existencia</td><td class="gg">apoyada</td><td>ticket ≥ denso y &gt; control en las 4 arquitecturas (ResNet: con rewind)</td></tr>
+      <tr><td>H1 complejidad → rewind</td><td class="hl2">parcial</td><td>ResNet sí; MLP y CNN no; ViT solo a poca densidad; sin barrido de k</td></tr>
+      <tr><td>H2 warmup ≈ rewind</td><td class="oo">compatible, no probada</td><td>patrón ResNet vs. ViT, confundido con optimizador y datos</td></tr>
+      <tr><td>H3a global &gt; por capa (CNN)</td><td class="gg">apoyada</td><td>53.0% → 75.7%; sin filtros vacíos; pesos de capas pequeñas 12× mayores</td></tr>
+      <tr><td>H3b redes grandes → global</td><td class="oo">consistente, no probada</td><td>ResNet y ViT nunca se podaron por capa</td></tr>
+    </table>
+    <div class="row two">
+      <div class="card"><h3 class="f9">Límites</h3><p class="tiny">Una semilla por experimento; ~10,000 imágenes de prueba (diferencias ≤ 1 punto son ruido); sin barrido de k; warmup sin variar; sin transferencia entre datasets.</p></div>
+      <div class="card"><h3 class="f9">Siguiente</h3><p class="tiny">ResNet con warmup y ViT sin warmup (H2); ViT y ResNet con poda por capa (H3b); barrido de k con varias semillas y McNemar.</p></div>
     </div>
-    <p class="tiny">Límites: una semilla por experimento · ~10,000 imágenes de prueba (diferencias ≤ 1 punto son ruido) · sin transferencia entre datasets.</p>
-    <p class="tiny"><b>Referencias.</b> [1] Frankle &amp; Carbin, <i>The Lottery Ticket Hypothesis</i>, ICLR 2019. [2] Frankle et al., <i>Stabilizing the Lottery Ticket Hypothesis</i>, 2019. [3] Renda et al., <i>Comparing Rewinding and Fine-tuning in Neural Network Pruning</i>, ICLR 2020. [4] Touvron et al., <i>DeiT</i>, ICML 2021. [5] Shen et al., <i>Data Level Lottery Ticket Hypothesis for Vision Transformers</i>, IJCAI 2023.</p>
+    <p class="tiny"><b>Referencias.</b> [1] Frankle &amp; Carbin, <i>The Lottery Ticket Hypothesis</i>, ICLR 2019. [2] Frankle et al., <i>Stabilizing the LTH</i>, 2019. [3] Renda et al., <i>Rewinding and Fine-tuning</i>, ICLR 2020. [4] Touvron et al., <i>DeiT</i>, ICML 2021. [5] Shen et al., <i>Data Level LTH for ViTs</i>, IJCAI 2023. <span class="chip todo">Enlace al repositorio y al video</span></p>
   </div>
 </section>
 
@@ -347,39 +378,19 @@ const f = v => (v * 100).toFixed(1) + '%';
 const todo = t => `<span class="chip todo">${t}</span>`;
 const set = (id, h) => { const e = document.getElementById(id); if (e) e.innerHTML = h; };
 
-// Texto explicativo calculado de los datos
+// Tabla del ViT largo calculada de los datos
 try {
-  const m = DATA.mlp, c = DATA.cnn, r = DATA.resnet, v = DATA.vit, l = DATA.vitlong;
-  set('t-mlp', `<b>MLP</b><p class="tiny">Capas totalmente conectadas sobre dígitos (MNIST). Con solo <b>${m.ticket.at(-1)[0]}%</b> de los pesos el ticket mantiene <span class="hl">${f(m.ticket.at(-1)[1])}</span> (la red completa: ${f(m.ticket[0][1])}). La misma estructura con pesos nuevos baja a <span class="o">${f(m.random.at(-1)[1])}</span>: los valores iniciales importan.</p>`);
-  const best = Math.max(...c.ticket.map(p => p[1])), cl = c.ticket.at(-1), cr = c.random.at(-1);
-  set('t-cnn', `<b>CNN</b><p class="tiny">Convoluciones sobre imágenes (CIFAR-10). El ticket llega a <span class="hl">${f(best)}</span>, por encima de la red completa (${f(c.ticket[0][1])}), y le gana al control en casi todo el rango. En el punto más chico (${cl[0]}% de los pesos): ticket ${f(cl[1])} vs. control ${f(cr[1])}` + (cl[1] < cr[1] ? ' <span class="o">(el ticket cae por debajo; se repitió en una segunda corrida)</span>. Con poda por capa todas las capas conservan ~10.7%: en la primera convolución 7 de 64 filtros quedan vacíos y el 40% de las neuronas ocultas ya no llega a la salida.' : '.') + '</p>');
-  set('t-resnet', `<b>ResNet</b><p class="tiny">20 capas con conexiones residuales. Con ${r.ticket.at(-1)[0]}% de los pesos, regresar a θ₀ da <span class="hl">${f(r.ticket.at(-1)[1])}</span>, igual que el control (${f(r.random.at(-1)[1])}). <b>Rebobinar a la época 1</b> da <span class="g">${f(r.ticket_late.at(-1)[1])}</span> (red completa: ${f(r.ticket[0][1])}).</p>`);
-  const v11 = at(v.ticket, 11), vr = at(v.random, 11);
-  set('t-vit', `<b>ViT</b><p class="tiny">Transformer que parte la imagen en 64 parches. Con ~11% de los pesos el ticket tiene <span class="hl">${f(v11[1])}</span>, más que la red completa (${f(v.ticket[0][1])}); el control cae a <span class="o">${f(vr[1])}</span>. Rebobinar no mejora. Posible razón (sin probar): el <i>warmup</i>, un learning rate pequeño al inicio, ya estabiliza el arranque.</p>`);
-  if (l) {
-    const lt = l.ticket.at(-1), best2 = Math.max(...l.ticket.map(p => p[1]));
-    set('t-vitlong', `<div style="display:flex;gap:2vw;align-items:baseline"><div><span class="big" style="color:var(--muted)">${f(l.ticket[0][1])}</span><br><span class="tiny">red completa (antes 78.9%)</span></div><div><span class="big hl">${f(best2)}</span><br><span class="tiny">mejor ticket (rewinding)</span></div></div>`);
-    const q = k => at(l[k], 7.5), q2 = k => at(l[k], 3.2);
-    set('t-vitlong2', `Con 7.5% de los pesos: ticket desde θ₀ <span class="hl">${f(q('ticket')[1])}</span>, con rewinding a la época 5 <span class="g">${f(q('ticket_late')[1])}</span>, control con pesos nuevos <span class="o">${f(q('random')[1])}</span>. El ticket está por encima de la red completa hasta ~12% de los pesos.`);
-  }
-} catch (e) { console.warn(e); }
-if (DATA.cnn) set('h-cnn', '');
-try {
-  const l = DATA.vitlong, pts = [27.5, 11.6, 7.5, 4.9, 3.2], d0 = l.ticket[0][1];
+  const l = DATA.vitlong, pts = [27.5, 11.6, 7.5, 4.9, 3.2];
   const row = (name, cls, k) => `<tr><td class="${cls}">${name}</td>` + pts.map(p => `<td class="r">${f(at(l[k], p)[1])}</td>`).join('') + '</tr>';
-  const dl = (name, k) => `<tr><td>${name}</td>` + pts.map(p => { const d = (at(l[k], p)[1] - d0) * 100; return `<td class="r" style="color:var(${d >= 0 ? '--rewind' : '--random'})">${d >= 0 ? '+' : ''}${d.toFixed(1)}</td>`; }).join('') + '</tr>';
-  set('tb-vitlong', `<table class="tb"><tr><th>% de pesos</th>${pts.map(p => `<th class="r">${p}%</th>`).join('')}</tr>` + row('Ticket desde θ₀', 'hl2', 'ticket') + row('Ticket con rewinding (época 5)', 'gg', 'ticket_late') + row('Control: pesos nuevos', 'oo', 'random') + dl('Rewinding − denso (puntos)', 'ticket_late') + '</table>');
+  const dl = `<tr><td>Rewind − ticket (pts)</td>` + pts.map(p => { const d = (at(l.ticket_late, p)[1] - at(l.ticket, p)[1]) * 100; return `<td class="r" style="color:var(${d >= 0.5 ? '--rewind' : '--muted'})">${d >= 0 ? '+' : ''}${d.toFixed(1)}</td>`; }).join('') + '</tr>';
+  set('tb-vitlong', `<p class="tiny" style="margin-top:1vh">ViT largo (100 épocas), % de pesos:</p><table class="tb"><tr><th></th>${pts.map(p => `<th class="r">${p}%</th>`).join('')}</tr>` + row('Ticket desde θ₀', 'hl2', 'ticket') + row('Ticket con rewind', 'gg', 'ticket_late') + row('Control', 'oo', 'random') + dl + '</table>');
 } catch (e) { console.warn(e); }
-
-if (DATA.vitlong && DATA.vitlong_partial) set('h-vitlong', todo('corrida en curso'));
-
 // ---- navegación: las gráficas se dibujan al mostrar cada diapositiva ----
 const draw = {
   s1: () => net('net-hero', 0.14, {layers: [6, 9, 11, 9, 5]}),
   s2: () => { net('net-dense', 1); net('net-sparse', 0.12); },
-  s5: () => { chart('c-mlp', DATA.mlp); chart('c-cnn', DATA.cnn); },
-  s6: () => { chart('c-resnet', DATA.resnet); chart('c-vit', DATA.vit); },
-  s7: () => chart('c-vitlong', DATA.vitlong),
+  s6: () => { chart('c-mlp', DATA.mlp); chart('c-cnn', DATA.cnn); chart('c-resnet', DATA.resnet); chart('c-cnng', DATA.cnng); chart('c-vit', DATA.vit); chart('c-vitlong', DATA.vitlong); },
+  s7: () => { chart('c-cnn-b', DATA.cnn); chart('c-cnng-b', DATA.cnng); },
 };
 const slides = [...document.querySelectorAll('.slide')];
 let i = Math.max(0, Math.min(slides.length - 1, (parseInt(location.hash.slice(1)) || 1) - 1));

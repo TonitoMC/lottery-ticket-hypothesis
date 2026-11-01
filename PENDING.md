@@ -1,18 +1,25 @@
 # Pending
 
-As of 2026-10-31 (night). All training is finished except one optional run. Everything else left is writing.
+As of 2026-11-01. All training is finished. What is left is your analysis and writing.
 
-## 1. Run the pending experiment (optional): `02b_cnn_global.py`
+## 1. DONE: `02b_cnn_global.py` (global pruning of the CNN)
 
-Repeats the CNN with **global** instead of per-layer pruning, to check whether that is why the 10.7% point collapses (ticket 53.0% vs. random 61.2%, reproduced in a second run; masks at that point show 7/64 empty filters in the first conv and 102/256 empty hidden units).
+Ran on 2026-11-01. At 10.7% of the weights the ticket gets **75.7%** vs. 69.4% random (dense 74.0%); per-layer (02) had 53.0% vs. 61.2%. Masks at that point: first conv keeps 88% (1,523 weights vs. 188), 0 empty filters, 0 dead hidden units. Already folded into `07_informe.py` (section 4, Q7, conclusions), slide 5/10 and `results/cnn_global_cifar10.json`. Output: `notebooks/02b_cnn_global.html`, log in `cnn_global.log`.
 
-- About 75 minutes alone on the GPU. Writes `results/cnn_global_cifar10.json` and `checkpoints/02b_cnn_global/`. Its last cell plots per-layer (02) vs. global.
-- If it is **not** run: the report already words the cause as "possible, not proven". Nothing else breaks.
-- If it **is** run: update the CNN paragraph in `07_informe.py` (section 4), the CNN text on slide 6 (`presentation/template.html`, `t-cnn`) and discussion question 7, then rebuild (commands at the bottom).
+## 1b. New: demo notebook `08_demo.py`
+
+Interactive (dropdown model, sparsity slider, test image or your own upload): dense vs. ticket vs. random (+ rewinding and attention for the ViT). Run live for the video with `cd notebooks && uv run marimo run 08_demo.py`; `08_demo.html` is a static snapshot.
+
+## 1c. New: formal report in LaTeX (`report/`)
+
+- `report/informe.tex` follows the required sections (problem, analysis, proposed solution, solution, tools + AI prompts, results, conclusion, bibliography) and is organized around hypotheses H0-H3 (existence, rewinding vs. complexity, warmup, per-layer vs. global pruning). Build: `cd report && latexmk -pdf informe.tex` (-> `informe.pdf`, ~19 pages).
+- `report/make_figures.py` regenerates every figure and number table from `results/` and `checkpoints/` (`uv run python report/make_figures.py`). `report/figures/index.html` is a gallery with a how-to-read note per figure.
+- Orange **[POR COMPLETAR]** boxes = things only you can fill (course data, group, repo/video links, the AI prompt history table, decision on the warmup experiment). Blue **Borrador** boxes = drafted interpretations to rewrite.
+- H2 (warmup) is only observational: warmup was never varied. Direct test = ResNet with warmup + ViT without (~1h45m + ~45m GPU).
 
 ## 2. Your analysis (the part that is yours)
 
-In `notebooks/07_informe.py`, every **[POR COMPLETAR]** block, with the guiding questions already written under it:
+In `notebooks/07_informe.py`, the **Borrador** blocks are drafted interpretations (and 8.1 has draft answers to all 12 questions). Rewrite them in your own words and delete what you do not agree with. Remember the causal explanations are hypotheses:
 
 - Section 5, after the long-ViT table: why rewinding only helps at the sparsest points, and how that relates to 04.
 - Section 6, after the figures: layer survival (`head` / `patch_embed` keep more), the random control's attention concentrating at the bottom, gradient norms at step 0, per-class differences.
@@ -20,7 +27,7 @@ In `notebooks/07_informe.py`, every **[POR COMPLETAR]** block, with the guiding 
 - Section 8: the 12 discussion questions. Keep, cut or reword; each says which experiment would answer it.
 - `06_inspection.html` has more views than the report shows (qkv per head, ticket-vs-rewind IoU, mask shapes, entropy). Pick what you want to discuss.
 
-Then transcribe to LaTeX. The figures to reuse are in `presentation/img/*.png`; the numbers come from `results/*.json`.
+There is a guide table of how to read each view at the start of section 6, plus architecture diagrams in 2.1. Then transcribe to LaTeX. The figures to reuse are in `presentation/img/*.png`; the numbers come from `results/*.json`.
 
 Slides (`presentation/template.html`):
 
@@ -55,5 +62,6 @@ Rewind-epoch sweep (the actual test of "more complex means later"), several seed
 python3 presentation/build.py                                   # slides from results/*.json
 cd notebooks && uv run python ../presentation/make_figs.py      # slide 9 figures from checkpoints
 cd notebooks && uv run marimo export html 07_informe.py -o 07_informe.html
+cd notebooks && uv run marimo export html 08_demo.py -o 08_demo.html
 cd notebooks && INSPECT_DIR=../checkpoints/05_vit_longer INSPECT_PCT=10 uv run marimo export html 06_inspection.py -o 06_inspection.html
 ```

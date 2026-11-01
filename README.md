@@ -8,13 +8,14 @@ Lottery Ticket Hypothesis (LTH) across architectures (MLP, CNN, ResNet-18, ViT):
 |---|---|---|
 | `01_mlp_mnist.py` | LeNet-300-100, IMP + random-reinit control | MNIST |
 | `02_cnn_cifar10.py` | Conv-4, per-layer pruning | CIFAR-10 |
-| `02b_cnn_global.py` | Same as 02 with global pruning (tests the 10.7% collapse). Optional, not run yet | CIFAR-10 |
+| `02b_cnn_global.py` | Same as 02 with global pruning. Removes the 10.7% collapse (75.7% vs. 53.0%) | CIFAR-10 |
 | `03_resnet18_cifar10.py` | ResNet-18 (CIFAR variant) + rewinding to epoch 1 | CIFAR-10 |
 | `04_vit_cifar10.py` | Small ViT, 20 epochs + rewinding to epoch 2 | CIFAR-10 |
 | `05_vit_longer.py` | ViT, 100 epochs, RandAugment / mixup / cutmix / label smoothing, rewinding to epoch 5 | CIFAR-10 |
 | `05_comparison.py` | Reads `results/*.json`, compares all architectures | - |
 | `06_inspection.py` | Opens the saved checkpoints: per-layer / per-head survival, mask shapes, per-class accuracy, attention, gradients | - |
 | `07_informe.py` | The report (Spanish): method, results, inspection, discussion questions | - |
+| `08_demo.py` | Interactive demo: pick model, sparsity and image (or upload one); dense vs. ticket vs. random | - |
 
 `notebooks/lth.py` is the pruning code (masks, magnitude pruning, IMP loop with optional rewinding, random-reinit control, checkpoint saving). Each notebook defines its own model and training loop. Exported HTML copies sit next to each notebook.
 

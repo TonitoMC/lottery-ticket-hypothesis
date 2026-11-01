@@ -49,6 +49,7 @@ vit_long = from_json(load("vit_longer")) or from_log(root / "vit_longer.log")
 data = {
     "mlp": from_json(load("mlp_mnist")),
     "cnn": from_json(load("cnn_cifar10")),
+    "cnng": from_json(load("cnn_global_cifar10")),
     "resnet": from_json(load("resnet18_cifar10")),
     "vit": from_json(load("vit_cifar10")),
     "vitlong": vit_long,

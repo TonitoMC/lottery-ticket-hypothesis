@@ -587,6 +587,10 @@ def main():
     if not args.only:
         make_tables()
         make_index(done)
+        # diagramas de la CNN y del ViT (comparten código con la presentación; modo claro para el informe)
+        import subprocess
+        for script in ("make_cnn_figs.py", "make_vit_figs.py"):
+            subprocess.run([sys.executable, str(ROOT / "presentation" / script), "--light"], check=True)
     print("listo:", OUT)
 
 

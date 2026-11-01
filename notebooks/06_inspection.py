@@ -10,7 +10,9 @@ def _(mo):
     # Proyecto Final
     Este Notebook es parte del Proyecto Final del curso de Deep Learning, este proyecto trata sobre un fenómeno conocido como el "Lottery Ticket Hypothesis" (LTH).
 
-    ## 06 - Inspección de los tickets
+    ## 06 - Resultados e inspección de los tickets
+Este notebook reúne la parte **objetiva** del proyecto, sin discusión: primero los resultados de todas las corridas (curvas, resumen, arquitecturas, comparación de máscaras de la CNN) y luego la inspección de los checkpoints. La interpretación está en `report/informe.tex`.
+
     Los notebooks 01-05 guardan en `checkpoints/<corrida>/` los pesos y las máscaras de cada ronda de IMP (`lth.save_round`) y los pesos denso / inicial / de rewind (`base.pt`). Aquí se abren esos archivos para mirar **qué** encontró la poda, no solo cuánta accuracy queda:
 
     1. **Pesos que sobreviven por capa** (y por cabeza de atención en el ViT).
@@ -51,6 +53,337 @@ def _():
     device = os.environ.get("INSPECT_DEVICE") or (torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu")
     print(f"Using {device} device, inspecting {RUN_DIR}")
     return F, RUN_DIR, TARGET_PCT, DataLoader, datasets, device, json, lth, mo, nn, np, os, plt, torch, v2
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Resultados de todas las corridas
+    Esta parte no necesita checkpoints: lee `results/*.json` y, para la comparación de máscaras de la CNN, `checkpoints/02_cnn` y `checkpoints/02b_cnn_global`. Es solo descripción de los datos; la interpretación (hipótesis, discusión, conclusiones) está en `report/informe.tex`. Todas las corridas son de una sola semilla: diferencias de ~1 punto o menos son ruido.
+
+    Tres curvas por arquitectura: **ticket** (los pesos sobrevivientes regresan a su valor inicial), **ticket con rewinding** (regresan a su valor tras $k$ épocas de entrenamiento denso, solo ResNet y ViT) y **reinicialización aleatoria** (la misma máscara con pesos nuevos, el control).
+    """)
+    return
+
+
+@app.cell
+def _(json, os):
+    EXPERIMENTS = {
+        "mlp_mnist": "MLP / MNIST",
+        "cnn_cifar10": "CNN poda por capa / CIFAR-10",
+        "cnn_global_cifar10": "CNN poda global / CIFAR-10",
+        "resnet18_cifar10": "ResNet-20 / CIFAR-10",
+        "vit_cifar10": "ViT (20 ép.) / CIFAR-10",
+        "vit_longer": "ViT largo (100 ép.) / CIFAR-10",
+    }
+    runs = {}
+    for _file, _name in EXPERIMENTS.items():
+        _path = os.path.join("..", "results", f"{_file}.json")
+        if os.path.exists(_path):
+            with open(_path) as _f:
+                runs[_name] = json.load(_f)
+    _dense = os.path.join("..", "results", "vit_longer_dense.json")
+    vit_dense = json.load(open(_dense)) if os.path.exists(_dense) else None
+    print("corridas cargadas:", ", ".join(runs))
+    return runs, vit_dense
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Arquitecturas e IMP
+    Las cuatro redes con la forma de los tensores y los pesos podables por capa (verde = capas que se podan), y el ciclo de poda iterativa por magnitud (IMP): entrenar con la máscara, quitar el 20% (35% en el ViT) de los pesos vivos de menor magnitud, regresar los sobrevivientes al punto de referencia y volver a entrenar.
+    """)
+    return
+
+
+@app.cell
+def _(plt):
+    from matplotlib.patches import FancyBboxPatch
+
+    def _row(ax, y, items, title, colors=None):
+        # items: [(texto, ancho)]; se dibujan cajas con flechas entre ellas
+        ax.text(0.0, y + 0.62, title, fontsize=10, fontweight="bold", va="bottom")
+        x = 0.0
+        for i, (txt, w) in enumerate(items):
+            c = (colors or {}).get(i, "#dbe9f6")
+            ax.add_patch(FancyBboxPatch((x, y), w, 0.55, boxstyle="round,pad=0.02", fc=c, ec="#33506b", lw=0.8))
+            ax.text(x + w / 2, y + 0.275, txt, ha="center", va="center", fontsize=7)
+            if i < len(items) - 1:
+                ax.annotate("", xy=(x + w + 0.18, y + 0.275), xytext=(x + w + 0.02, y + 0.275),
+                            arrowprops=dict(arrowstyle="->", color="#33506b", lw=0.8))
+            x += w + 0.2
+        return x
+
+    _fig, _ax = plt.subplots(figsize=(14, 7.6))
+    _ax.set_xlim(-0.2, 15.2)
+    _ax.set_ylim(-0.2, 10.4)
+    _ax.axis("off")
+    _prune, _norm, _act = "#cfe8cf", "#eeeeee", "#fbe3c8"
+    _row(_ax, 9.0, [("Imagen\n(784)", 1.0), ("Linear\n784→300\n235k", 1.2), ("ReLU", 0.7), ("Linear\n300→100\n30k", 1.2), ("ReLU", 0.7), ("Linear\n100→10\n1k", 1.1), ("10 clases", 1.0)],
+         "MLP (LeNet-300-100) · MNIST · 266k pesos podables", {1: _prune, 3: _prune, 5: _prune, 2: _act, 4: _act})
+    _row(_ax, 7.2, [("Imagen\n(3,32,32)", 1.1), ("Conv 3→64\n1.7k", 1.0), ("Conv 64→64\n37k", 1.0), ("MaxPool\n(64,16,16)", 0.95), ("Conv 64→128\n74k", 1.05), ("Conv 128→128\n147k", 1.1), ("MaxPool\n(128,8,8)", 0.95), ("Linear\n8192→256\n2.1M", 1.05), ("Linear\n256→256\n66k", 1.0), ("Linear\n256→10", 0.85)],
+         "CNN (Conv-4) · CIFAR-10 · ~2.4M pesos podables (86% están en la primera Linear)", {1: _prune, 2: _prune, 4: _prune, 5: _prune, 7: _prune, 8: _prune, 9: _prune, 3: _norm, 6: _norm})
+    _row(_ax, 5.4, [("Imagen\n(3,32,32)", 1.1), ("Conv 3→16\n+BN+ReLU", 1.1), ("3 bloques\n16 canales\n(32×32)", 1.25), ("3 bloques\n32 canales\n(16×16)", 1.2), ("3 bloques\n64 canales\n(8×8)", 1.2), ("AvgPool\n+ Linear\n64→10", 1.1), ("10 clases", 0.9)],
+         "ResNet de 20 capas [1] · CIFAR-10 · ~270k pesos podables", {1: _prune, 2: _prune, 3: _prune, 4: _prune, 5: _prune})
+    _ax.text(9.6, 5.75, "Bloque residual:  x → Conv3×3 → BN → ReLU → Conv3×3 → BN → (+ x) → ReLU\n(la suma con x es la conexión residual; con cambio de canales, atajo 1×1)", fontsize=7.5, va="center", color="#444")
+    _row(_ax, 3.6, [("Imagen\n(3,32,32)", 1.1), ("Parches 4×4\nConv 3→192\n(64 tokens)", 1.3), ("+ [CLS]\n+ posición\n(65,192)", 1.1), ("× 6 bloques\n(ver abajo)", 1.3), ("LayerNorm", 0.9), ("[CLS] →\nLinear\n192→10", 1.0), ("10 clases", 0.9)],
+         "ViT pequeño · CIFAR-10 · ~1.8M pesos podables (6 bloques, dim 192, 3 cabezas)", {1: _prune, 5: _prune, 3: "#e3d8f0"})
+    _row(_ax, 1.8, [("x", 0.5), ("LayerNorm", 0.9), ("qkv\n192→576", 0.9), ("Atención\n3 cabezas", 1.0), ("proj\n192→192", 0.9), ("+ x", 0.55), ("LayerNorm", 0.9), ("mlp.0\n192→384", 0.95), ("GELU", 0.6), ("mlp.2\n384→192", 0.95), ("+ x", 0.55)],
+         "Un bloque del ViT (se repite 6 veces). Todas las Linear y las LayerNorm entran a la poda global", {2: _prune, 4: _prune, 7: _prune, 9: _prune, 3: "#e3d8f0", 1: _norm, 6: _norm})
+    # Ciclo de IMP
+    _y = 0.1
+    _steps = ["1. Entrenar\n(con la máscara)", "2. Podar 20%\nde los pesos vivos\n(menor |w|)", "3. Regresar los\nsobrevivientes a θ₀\no a θ_k (rewind)", "4. Volver a entrenar\ny medir accuracy"]
+    _x = 0.2
+    for _i, _t in enumerate(_steps):
+        _ax.add_patch(FancyBboxPatch((_x, _y), 2.7, 0.9, boxstyle="round,pad=0.03", fc="#fff2cc", ec="#7f6000", lw=0.8))
+        _ax.text(_x + 1.35, _y + 0.45, _t, ha="center", va="center", fontsize=7.5)
+        if _i < 3:
+            _ax.annotate("", xy=(_x + 3.15, _y + 0.45), xytext=(_x + 2.76, _y + 0.45), arrowprops=dict(arrowstyle="->", lw=1))
+        _x += 3.2
+    _ax.text(13.1, _y + 0.45, "se repite\n8-15 rondas\n(IMP)", ha="left", va="center", fontsize=8, fontweight="bold")
+    _ax.text(0.0, 1.2, "Poda por magnitud iterativa (IMP)", fontsize=10, fontweight="bold")
+    _ax.text(15.1, 10.3, "Verde: capas que se podan   Naranja: activación   Gris: sin poda (pooling/norm)   Morado: atención", ha="right", fontsize=7.5, color="#444")
+    _fig.tight_layout()
+    _fig
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Accuracy de prueba contra pesos restantes
+    Eje x logarítmico e invertido: la red se hace más pequeña hacia la derecha. Si la curva del ticket se mantiene arriba y la del control cae, la estructura sola no explica el resultado.
+
+    *El código de las gráficas fue generado con IA.*
+    """)
+    return
+
+
+@app.cell
+def _(plt, runs):
+    _labels = {
+        "ticket": "Ticket (época 0)",
+        "ticket_late": "Ticket (rewind)",
+        "random": "Reinit aleatorio",
+    }
+    _fig, _axes = plt.subplots(2, 3, figsize=(14, 7.5), squeeze=False)
+    for _ax, (_name, _run) in zip(_axes.flat, runs.items()):
+        for _key, _label in _labels.items():
+            if _key in _run:
+                _res = _run[_key]
+                _ax.plot([r["weights_left"] * 100 for r in _res], [r["acc"] for r in _res], marker="o", markersize=4, label=_label)
+        _ax.set_xscale("log")
+        _ax.invert_xaxis()
+        _ax.set_title(_name, fontsize=10)
+        _ax.set_xlabel("Pesos restantes (%)")
+        _ax.grid(alpha=0.3)
+    for _ax in list(_axes.flat)[len(runs):]:
+        _ax.axis("off")
+    _axes[0][0].set_ylabel("Accuracy de prueba")
+    _axes[1][0].set_ylabel("Accuracy de prueba")
+    _axes[0][0].legend(fontsize=8)
+    _fig.tight_layout()
+    _fig
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Accuracy relativa a la red densa
+    A cada curva se le resta la accuracy de su red densa, para comparar arquitecturas con bases distintas. 0 = la subred iguala a la completa. Línea continua: ticket; punteada: control aleatorio.
+    """)
+    return
+
+
+@app.cell
+def _(plt, runs):
+    _fig, _ax = plt.subplots(figsize=(8, 4.8))
+    for _i, (_name, _run) in enumerate(runs.items()):
+        _color = f"C{_i}"
+        _dense = _run["ticket"][0]["acc"]
+        _ax.plot([r["weights_left"] * 100 for r in _run["ticket"]], [r["acc"] - _dense for r in _run["ticket"]],
+                 marker="o", markersize=4, color=_color, label=f"{_name}: ticket")
+        if "random" in _run:
+            _ax.plot([r["weights_left"] * 100 for r in _run["random"]], [r["acc"] - _dense for r in _run["random"]],
+                     linestyle="--", color=_color, alpha=0.6)
+    _ax.axhline(0, color="gray", linewidth=0.8)
+    _ax.set_xscale("log")
+    _ax.invert_xaxis()
+    _ax.set_xlabel("Pesos restantes (%)")
+    _ax.set_ylabel("Δ accuracy vs. red densa")
+    _ax.set_title("Línea continua: ticket. Línea punteada: reinit aleatorio.", fontsize=9)
+    _ax.grid(alpha=0.3)
+    _ax.legend(fontsize=7)
+    _fig
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### Resumen
+    - **Mín. pesos (ticket / aleatorio):** la red más pequeña que queda a menos de 1 punto de la accuracy densa.
+    - **Ventaja del ticket:** diferencia promedio entre el ticket y la reinicialización aleatoria sobre las rondas podadas.
+    - **Ganancia del rewinding:** diferencia promedio entre el ticket con rewinding y el clásico.
+    """)
+    return
+
+
+@app.cell
+def _(mo, runs):
+    def _smallest(res, dense):
+        _ok = [r["weights_left"] for r in res if r["acc"] >= dense - 0.01]
+        return f"{min(_ok):.1%}" if _ok else "ninguna"
+
+    def _mean_gap(a, b):
+        _n = min(len(a), len(b)) - 1
+        return sum(x["acc"] - y["acc"] for x, y in zip(a[1:], b[1:])) / _n if _n > 0 else float("nan")
+
+    _rows = [
+        "| Arquitectura | Acc. densa | Mín. pesos (ticket) | Mín. pesos (aleatorio) | Ventaja del ticket | Ganancia del rewinding |",
+        "|---|---:|---:|---:|---:|---:|",
+    ]
+    for _name, _run in runs.items():
+        _dense = _run["ticket"][0]["acc"]
+        _rand = _run.get("random", [])
+        _adv = f"{_mean_gap(_run['ticket'], _rand):+.2%}" if len(_rand) > 1 else "—"
+        _late = f"{_mean_gap(_run['ticket_late'], _run['ticket']):+.2%}" if len(_run.get("ticket_late", [])) > 1 else "—"
+        _rows.append(f"| {_name} | {_dense:.2%} | {_smallest(_run['ticket'], _dense)} | {_smallest(_rand, _dense) if _rand else '—'} | {_adv} | {_late} |")
+    mo.md("\n".join(_rows))
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### ViT denso de 100 épocas
+    Accuracy de entrenamiento (sin aumento de datos) y de prueba por época. Sirve para ver si el baseline contra el que se compara el ticket está sobreajustado o subentrenado.
+    """)
+    return
+
+
+@app.cell
+def _(plt, vit_dense):
+    if vit_dense:
+        _h = vit_dense["history"]
+        _fig, _ax = plt.subplots(figsize=(6.5, 4))
+        _ax.plot([e["epoch"] for e in _h], [e["train_acc"] for e in _h], label="Entrenamiento (sin aumento)")
+        _ax.plot([e["epoch"] for e in _h], [e["test_acc"] for e in _h], label="Prueba")
+        _ax.set_xlabel("Época")
+        _ax.set_ylabel("Accuracy")
+        _ax.grid(alpha=0.3)
+        _ax.legend()
+        _out_dense = _fig
+    else:
+        _out_dense = "Falta results/vit_longer_dense.json"
+    _out_dense
+    return
+
+
+@app.cell
+def _(mo, runs, vit_dense):
+    _vl = runs.get("ViT largo (100 ép.) / CIFAR-10")
+    _rows = ["| % de pesos | Ticket desde $\\theta_0$ | Ticket con rewinding (época 5) | Aleatorio |", "|---:|---:|---:|---:|"]
+    if _vl:
+        for _i, _r in enumerate(_vl["ticket"]):
+            _late = f"{_vl['ticket_late'][_i]['acc']:.2%}" if _i < len(_vl.get("ticket_late", [])) else "—"
+            _rnd = f"{_vl['random'][_i]['acc']:.2%}" if _i < len(_vl["random"]) else "—"
+            _rows.append(f"| {_r['weights_left']:.1%} | {_r['acc']:.2%} | {_late} | {_rnd} |")
+    _last = vit_dense["history"][-1] if vit_dense else None
+    mo.md((f"**Final de las {_last['epoch']} épocas:** prueba = {_last['test_acc']:.2%}, entrenamiento = {_last['train_acc']:.2%}.\n\n" if _last else "") + "**ViT largo (05), accuracy de prueba por porcentaje de pesos:**\n\n" + "\n".join(_rows))
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### CNN: qué sobrevive por capa, poda por capa vs. global
+    Mismas condiciones salvo el alcance de la poda (02: 20% de cada capa; 02b: un umbral de magnitud para toda la red). Se muestran las máscaras del ticket con 10.7% de los pesos totales (ronda 10). "Vacíos" = filtros convolucionales sin ningún peso vivo; en `fc3`, neuronas ocultas sin ningún peso hacia la salida.
+    """)
+    return
+
+
+@app.cell
+def _(mo, plt, torch):
+    _dirs = {"Por capa (02)": "../checkpoints/02_cnn", "Global (02b)": "../checkpoints/02b_cnn_global"}
+    _layers = ["conv.0", "conv.2", "conv.5", "conv.7", "linear.1", "linear.3", "linear.5"]
+    _nice = ["conv1 (3→64)", "conv2 (64→64)", "conv3 (64→128)", "conv4 (128→128)", "fc1 (8192→256)", "fc2 (256→256)", "fc3 (256→10)"]
+    _info = {}
+    for _lab, _d in _dirs.items():
+        _ck = torch.load(f"{_d}/ticket_r10_10.7pct.pt", map_location="cpu")
+        _info[_lab] = {}
+        for _n, _m in _ck["masks"].items():
+            _key = _n.removesuffix(".weight")
+            _row = {"keep": _m.float().mean().item(), "n": int(_m.sum())}
+            if _m.dim() == 4:
+                _row["dead"] = int((_m.flatten(1).sum(1) == 0).sum())
+                _row["of"] = _m.shape[0]
+            elif _key == "linear.5":
+                _row["dead"] = int((_m.sum(0) == 0).sum())  # neuronas ocultas sin ningún peso a la salida
+                _row["of"] = _m.shape[1]
+            _info[_lab][_key] = _row
+    _lines = ["| Capa | Por capa (02): % vivo | Pesos | Filtros / neuronas vacíos | Global (02b): % vivo | Pesos | Filtros / neuronas vacíos |", "|---|---:|---:|---:|---:|---:|---:|"]
+    for _k, _nm in zip(_layers, _nice):
+        _cells = []
+        for _lab in _dirs:
+            _r = _info[_lab][_k]
+            _cells += [f"{_r['keep']:.1%}", f"{_r['n']:,}", f"{_r['dead']}/{_r['of']}" if "dead" in _r else "—"]
+        _lines.append(f"| {_nm} | " + " | ".join(_cells) + " |")
+    _fig, _ax = plt.subplots(figsize=(8, 3.6))
+    _w = 0.38
+    for _i, _lab in enumerate(_dirs):
+        _ax.bar([x + _i * _w for x in range(7)], [_info[_lab][k]["keep"] * 100 for k in _layers], _w, label=_lab)
+    _ax.axhline(10.7, color="gray", ls=":", lw=1)
+    _ax.set_xticks([x + _w / 2 for x in range(7)])
+    _ax.set_xticklabels(_nice, rotation=30, ha="right", fontsize=8)
+    _ax.set_ylabel("Pesos vivos de la capa (%)")
+    _ax.set_title("Ticket de la CNN con 10.7% de los pesos en total", fontsize=9)
+    _ax.legend(fontsize=8)
+    _fig.tight_layout()
+    mo.vstack([mo.md("**Qué sobrevive en cada capa de la CNN** (ronda 10, 10.7% de los pesos en total). 'Vacíos' = filtros convolucionales sin ningún peso vivo; en `fc3`, neuronas ocultas sin ningún peso hacia la salida.\n\n" + "\n".join(_lines)),
+               _fig,
+               mo.md("*Cómo leerlo:* la línea punteada es el 10.7% global. Con poda por capa todas las barras azules están en ~10.7%, también las capas diminutas (conv1 con 1,728 pesos queda en 188). Con poda global las barras naranjas varían: las capas pequeñas y de pesos grandes casi no se podan y la capa enorme `fc1`, donde hay más pesos redundantes, absorbe la mayor parte de la poda.")])
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### CNN: tamaño de los pesos por capa vs. lo que sobrevive
+    La poda global quita los pesos de menor magnitud de **toda** la red, así que lo que conserva cada capa depende de qué tan grandes son sus pesos. Se muestra la mediana de $|w|$ en la CNN densa entrenada (02b) y el porcentaje vivo de esa capa en el ticket global con 10.7% de los pesos. Las capas pequeñas (conv1, fc3) tienen pesos mucho más grandes que la capa enorme fc1; la poda por capa ignora eso y les exige perder lo mismo.
+    """)
+    return
+
+
+@app.cell
+def _(mo, plt, torch):
+    import glob as _glob
+    _names = ["conv.0", "conv.2", "conv.5", "conv.7", "linear.1", "linear.3", "linear.5"]
+    _nice = ["conv1", "conv2", "conv3", "conv4", "fc1", "fc2", "fc3"]
+    _b = torch.load("../checkpoints/02b_cnn_global/base.pt", map_location="cpu")
+    _ck = torch.load(_glob.glob("../checkpoints/02b_cnn_global/ticket_r10_*.pt")[0], map_location="cpu")
+    _med = [float(_b["dense"][k + ".weight"].abs().median()) for k in _names]
+    _size = [_b["dense"][k + ".weight"].numel() for k in _names]
+    _keep = [_ck["masks"][k + ".weight"].float().mean().item() * 100 for k in _names]
+    _fig, (_a1, _a2) = plt.subplots(1, 2, figsize=(10, 3.6))
+    _a1.bar(_nice, _med)
+    _a1.set_yscale("log")
+    _a1.set_ylabel("Mediana de |w| (red densa)")
+    for _i, _n in enumerate(_size):
+        _a1.text(_i, _med[_i] * 1.1, f"{_n:,}", ha="center", fontsize=7, rotation=90)
+    _a1.set_ylim(top=0.5)
+    for _m, _k, _l in zip(_med, _keep, _nice):
+        _a2.scatter(_m, _k, color="C1")
+        _a2.annotate(_l, (_m, _k), xytext=(4, 3), textcoords="offset points", fontsize=8)
+    _a2.set_xscale("log")
+    _a2.set_yscale("log")
+    _a2.set_xlabel("Mediana de |w| (red densa)")
+    _a2.set_ylabel("% vivo de la capa (ticket global, 10.7%)")
+    _fig.tight_layout()
+    mo.vstack([_fig, mo.md(f"conv1: mediana {_med[0]:.3f} con {_size[0]:,} pesos (queda {_keep[0]:.0f}% vivo); fc1: mediana {_med[4]:.4f} con {_size[4]:,} pesos (queda {_keep[4]:.1f}% vivo). Cociente de medianas conv1/fc1: {_med[0] / _med[4]:.0f}x.")])
+    return
 
 
 @app.cell(hide_code=True)
@@ -391,6 +724,8 @@ def _(mo):
     mo.md(r"""
     ## 2. Accuracy por clase
     Se evalúan **todos** los checkpoints en el conjunto de prueba completo y se guardan en `results/inspection_<corrida>.json`. Cada clase tiene 1,000 imágenes de prueba, así que la accuracy por clase tiene un error de aproximadamente $\pm 2.5$ puntos (95%): no interpretar diferencias menores.
+
+    **Cómo leerlo:** arriba, la accuracy de cada clase por modelo; abajo, la diferencia contra el denso. Una barra fuera de la banda gris es una clase donde el modelo podado realmente difiere. La matriz de confusión (filas = clase real, columnas = predicha) muestra *qué* se confunde: fuera de la diagonal están los errores.
     """)
     return
 
@@ -473,6 +808,8 @@ def _(mo):
     mo.md(r"""
     ## 3. Mapas de atención
     Atención del token `[CLS]` hacia los 64 parches (8x8) en el **último bloque**, promediada sobre las cabezas, para las 10 imágenes fijas. Cada fila es un modelo distinto al mismo porcentaje de pesos. El `random` tiene la misma máscara que el ticket pero otra inicialización, así que si se ve distinto es por la inicialización.
+
+    **Cómo leerlo:** más brillante = el `[CLS]` mira más ese parche (cada cuadro es de 4x4 píxeles). Si la atención cae sobre el objeto (cabeza, cuerpo, alas) el modelo parece usar la zona correcta; si se reparte uniforme, o se pega siempre al mismo borde para todas las imágenes, está usando algo menos específico de la imagen. La atención es una pista de dónde mira el modelo, **no** una explicación de por qué decide así.
     """)
     return
 
@@ -544,6 +881,8 @@ def _(mo):
 
     - **Paso 0:** antes de entrenar, con la máscara aplicada a los pesos iniciales (`ticket`), a los de rewind (`late`) o a una inicialización aleatoria nueva (`random`, guardada en el checkpoint). Muestra si la inicialización del ticket arranca con gradientes distintos a una aleatoria con la misma estructura.
     - **Final:** el modelo ya entrenado. Aquí los gradientes son pequeños, sirve más para comparar entre curvas que en valor absoluto.
+
+    **Cómo leerlo:** eje vertical logarítmico; una barra el doble de alta es un gradiente 2 veces mayor. Compara la misma capa entre curvas (ticket, rewinding, aleatorio), no capas distintas entre sí, porque la norma crece con el número de pesos. Un gradiente inicial menor sugiere que se arranca más cerca de un buen punto; no dice por sí solo qué modelo terminará mejor.
     """)
     return
 

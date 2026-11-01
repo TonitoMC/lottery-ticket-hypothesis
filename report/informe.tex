@@ -323,6 +323,22 @@ Con poda por capa el ticket de la CNN cae a partir de 16.8\% de los pesos y lleg
 \label{fig:cnnlayers}
 \end{figure}
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{cnn_diagram.pdf}
+\caption{La CNN (Conv-4) con 10.7\% de los pesos totales. Sobre cada capa: forma y número de pesos; debajo: fracción de pesos vivos de esa capa con poda por capa (naranja) y poda global (verde), y número de pesos que quedan. Con poda por capa todas las capas quedan en $\sim$11\%; con poda global conv1 conserva 88\% y fc1 solo 4.8\%.}
+\label{fig:cnndiagram}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{cnn_filters.pdf}
+\caption{Los 64 filtros de la primera convolución de la red densa, del ticket con poda por capa y del ticket con poda global (10.7\% de los pesos). Cada cuadro es un filtro $3\times3\times3$ (el color son los tres canales). Negro: posición podada. Rojo: filtro sin ningún peso vivo.}
+\label{fig:cnnfilters}
+\end{figure}
+
+\textit{Cómo leerlas:} un filtro convolucional es un detector (de bordes, de colores) que se aplica a toda la imagen; si todos sus pesos se podan (cuadro rojo), su salida es constante y el detector deja de aportar. Con poda por capa conv1 queda con 188 de 1{,}728 pesos y 7 de sus 64 filtros están vacíos; con poda global conserva 1{,}523 y ninguno está vacío, y sus filtros se parecen a los de la red densa.
+
 \begin{table}[H]
 \centering\footnotesize
 \input{figures/table_cnnmasks.tex}
@@ -357,6 +373,14 @@ Se inspeccionaron los checkpoints de 05 a 11.6\% de los pesos (ronda 5). Las fig
 \end{figure}
 \textit{Cómo leerla:} clara = casi todos los pesos vivos; oscura = casi vacía. Con poda global las capas no pierden parejo: en la última ronda (3.2\% del total) \texttt{head} conserva 21\%, \texttt{patch\_embed} 7\%, \texttt{qkv} 4.5\%, \texttt{proj} 2.6\%, \texttt{mlp.0} 2.7\% y \texttt{mlp.2} 1.3\%.
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{vit_diagram.pdf}
+\caption{ViT largo: fracción de pesos vivos por tipo de capa (sumados sobre los 6 bloques) con 11.6\% y con 3.2\% de los pesos totales, y número de pesos que quedan.}
+\label{fig:vitdiagram}
+\end{figure}
+\textit{Cómo leerla:} es la misma información que el mapa de calor, ordenada como la red: entrada (\texttt{patch\_embed}), bloques de atención y salida (\texttt{head}). Las dos capas extremas conservan más; dentro de los bloques, \texttt{mlp.2} es la más podada.
+
 \paragraph{Accuracy por clase.}
 \begin{figure}[H]
 \centering
@@ -374,6 +398,14 @@ Se inspeccionaron los checkpoints de 05 a 11.6\% de los pesos (ronda 5). Las fig
 \label{fig:attn}
 \end{figure}
 \textit{Cómo leerla:} cada cuadro de la matriz $8\times8$ es un parche de $4\times4$ píxeles; más brillante = más atención del \texttt{[CLS]}, el token que decide la clase. Si cae sobre el objeto, el modelo parece usar la zona correcta; si se reparte uniforme o se pega a un borde para todas las imágenes, usa algo menos específico de la imagen. \textit{Cautela:} la atención es una pista de dónde mira el modelo, no una explicación de su decisión. En las filas denso, ticket y rewinding la atención se reparte por distintas zonas; en el control aleatorio (misma máscara que el ticket, otra inicialización) se concentra en la parte inferior de las 5 imágenes.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{vit_attn.pdf}
+\caption{Atención del \texttt{[CLS]} sobre tres imágenes de prueba, con predicción de cada modelo (11.6\% de los pesos). \textbf{Las imágenes están elegidas}: son 3 de las 140 (entre las primeras 1{,}500 de prueba) en las que denso, ticket y rewinding aciertan y el control aleatorio falla; no son representativas del conjunto de prueba.}
+\label{fig:vitattn}
+\end{figure}
+\textit{Cómo leerla y qué no se puede concluir:} brillante = el \texttt{[CLS]} mira más ese parche. En estas imágenes denso, ticket y rewinding concentran la atención sobre el objeto y aciertan, mientras que el control (misma máscara que el ticket, otra inicialización) mira hacia abajo o el fondo y falla. Como el criterio de selección fue justamente que el control falle, esta figura ilustra el patrón pero no mide qué tan frecuente es; la medición es la accuracy por clase y la accuracy global (Tabla~\ref{tab:vitlong}).
 
 \paragraph{Entropía de la atención.}
 \begin{figure}[H]
