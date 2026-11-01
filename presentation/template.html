@@ -50,6 +50,17 @@ p, li { font-size: clamp(13px, 1.5vw, 22px); line-height: 1.42; margin: 0; }
 .read > div > b { font-size: clamp(13px, 1.5vw, 22px); }
 .bubble { background: var(--bg2); border: 1px solid var(--line); border-radius: 14px 14px 14px 4px; padding: 1.1vh 0.9vw; font-size: clamp(11px, 1.2vw, 17px); }
 .grid9 { display: grid; grid-template-columns: 0.9fr 1fr 1fr; gap: 1.4vw; }
+.tb { border-collapse: collapse; width: 100%; font-size: clamp(10px, 1.15vw, 16px); }
+.tb th, .tb td { border-bottom: 1px solid var(--line); padding: 0.6vh 0.8vw; text-align: left; }
+.tb th { color: var(--muted); font-weight: 600; }
+.tb td:first-child { font-weight: 700; }
+.tb .r { text-align: right; } .tb .hl2 { color: var(--ticket); font-weight: 700; } .tb .gg { color: var(--rewind); font-weight: 700; } .tb .oo { color: var(--random); font-weight: 700; }
+.arch { display: flex; align-items: center; gap: 0.5vw; flex-wrap: wrap; }
+.arch .bx { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 0.8vh 0.7vw; font-size: clamp(10px, 1.1vw, 16px); text-align: center; line-height: 1.3; }
+.arch .bx.ok { border-color: var(--rewind); color: var(--rewind); }
+.arch .ar { color: var(--muted); }
+.big9 img { width: 100%; height: auto; max-height: 34vh; object-fit: contain; align-self: center; }
+.f9 { font-size: clamp(13px, 1.45vw, 21px) !important; line-height: 1.25; }
 .grid9 img { width: 100%; object-fit: contain; min-height: 0; border-radius: 8px; }
 .ph { border: 2px dashed var(--line); border-radius: 12px; background: var(--bg2); display: flex; align-items: center; justify-content: center; height: 20vh; }
 .ph svg { width: 85%; height: 85%; opacity: .55; }
@@ -75,95 +86,115 @@ code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; font-size: 
 
 <section class="slide" id="s2">
   <div class="kicker">La idea · Frankle &amp; Carbin, ICLR 2019 [1]</div>
-  <h2>Casi todos los pesos de una red sobran: queda un boleto ganador</h2>
+  <h2>Casi todos los pesos sobran: queda un boleto ganador</h2>
   <div class="body">
-    <div class="row" style="grid-template-columns: 1fr 1fr 1.25fr">
-      <div class="card"><h3>Red densa</h3><div id="net-dense"></div><p class="tiny">Cada línea es un peso. Entrenarla da la accuracy completa.</p></div>
-      <div class="card"><h3 class="g">Subred podada</h3><div id="net-sparse"></div><p class="tiny">Se ponen en 0 los pesos de menor magnitud |w|. Quedan ~10%.</p></div>
+    <div class="row" style="grid-template-columns: 1fr 1fr 1.3fr">
+      <div class="card"><h3>Red densa</h3><div id="net-dense" style="height:15vh"></div><p class="tiny">Cada línea es un peso.</p></div>
+      <div class="card"><h3 class="g">Subred podada</h3><div id="net-sparse" style="height:15vh"></div><p class="tiny">Sin los pesos de menor |w|: ~10% quedan.</p></div>
       <div class="card" style="justify-content:center">
-        <p>Si entrenas esa subred desde <b>los mismos valores iniciales</b>, aprende casi igual de bien que la red completa. Es un <span class="g">boleto ganador</span>.</p>
-        <p><b>Control:</b> la misma estructura con pesos iniciales <span class="o">nuevos</span>. Si rinde peor, importan los valores iniciales, no solo la forma.</p>
+        <p class="tiny" style="font-size:clamp(12px,1.4vw,20px)">Entrenada desde <b>los mismos valores iniciales</b>, esa subred aprende casi igual que la red completa: un <span class="g">boleto ganador</span>.</p>
+        <p class="tiny" style="font-size:clamp(12px,1.4vw,20px)"><b>Control:</b> la misma estructura con pesos <span class="o">nuevos</span>. Si rinde peor, importan los valores, no solo la forma.</p>
       </div>
+    </div>
+    <div class="flow">
+      <div class="step"><b>1 · Entrenar</b>la red completa.</div><span class="arrow">→</span>
+      <div class="step"><b>2 · Podar</b>20% de los pesos de menor magnitud.</div><span class="arrow">→</span>
+      <div class="step"><b>3 · Regresar</b>los que quedan a un valor de referencia.</div><span class="arrow">→</span>
+      <div class="step"><b>4 · Repetir</b>cada vez más pequeña (IMP).</div>
+    </div>
+    <div class="row" style="grid-template-columns: 1.5fr 1fr">
+      <div class="card">
+        <div class="timeline" style="height:15vh">
+          <div class="axis"></div>
+          <div class="pt" style="left:3%; background:var(--ticket)"></div><div class="lab" style="left:12%; top:0.5vh; color:var(--ticket)"><b>θ₀: inicialización</b><br>ticket clásico</div>
+          <div class="pt" style="left:34%; background:var(--rewind)"></div><div class="lab" style="left:34%; top:8.5vh; color:var(--rewind)"><b>θₖ: época k</b><br><i>rewinding</i> [2]</div>
+          <div class="pt" style="left:97%; background:var(--muted)"></div><div class="lab" style="left:90%; top:0.5vh; color:var(--muted)"><b>θ_T: final</b><br>red entrenada</div>
+        </div>
+      </div>
+      <div class="card" style="justify-content:center"><p><b>Mi hipótesis:</b> mientras más compleja la red, más tarde (mayor <i>k</i>) se "fija" el ticket. Lo pruebo en un MLP, una CNN, una ResNet y un ViT.</p></div>
     </div>
   </div>
 </section>
 
 <section class="slide" id="s3">
-  <div class="kicker">Cómo se busca el ticket · y la pregunta del proyecto</div>
-  <h2>Podar de a poco, y decidir a qué punto regresar los pesos</h2>
+  <div class="kicker">Cómo lo construí · herramientas</div>
+  <h2>Los modelos y los loops los escribí a mano; la IA ayudó con el resto</h2>
   <div class="body">
-    <div class="flow">
-      <div class="step"><b>1 · Entrenar</b>la red completa hasta el final.</div><span class="arrow">→</span>
-      <div class="step"><b>2 · Podar</b>el 20% de los pesos de menor magnitud.</div><span class="arrow">→</span>
-      <div class="step"><b>3 · Regresar</b>los pesos que quedan a un valor de referencia.</div><span class="arrow">→</span>
-      <div class="step"><b>4 · Repetir</b>con la red cada vez más pequeña (IMP).</div>
-    </div>
-    <div class="card">
-      <div class="timeline">
-        <div class="axis"></div>
-        <div class="pt" style="left:3%; background:var(--ticket)"></div><div class="lab" style="left:11%; top:0.5vh; color:var(--ticket)"><b>θ₀: inicialización</b><br>ticket clásico</div>
-        <div class="pt" style="left:34%; background:var(--rewind)"></div><div class="lab" style="left:34%; top:10.5vh; color:var(--rewind)"><b>θₖ: época k</b><br><i>rewinding</i> [2]</div>
-        <div class="pt" style="left:97%; background:var(--muted)"></div><div class="lab" style="left:90%; top:0.5vh; color:var(--muted)"><b>θ_T: final</b><br>red entrenada</div>
-      </div>
-      <p><b>Mi hipótesis:</b> mientras más compleja la red, más tarde (mayor <i>k</i>) se "fija" el ticket. Lo pruebo en un MLP, una CNN, una ResNet y un ViT.</p>
-    </div>
-  </div>
-</section>
-
-<section class="slide" id="s4">
-  <div class="kicker">Cómo lo construí</div>
-  <h2>Escribí los modelos y los loops de entrenamiento a mano</h2>
-  <div class="body">
-    <div class="row" style="grid-template-columns: 1.7fr 1fr">
+    <div class="row three">
       <div class="card" style="border-top:4px solid var(--human)">
         <h3 class="g">Mi parte</h3>
-        <ul style="display:flex;flex-direction:column;gap:0.8vh">
-          <li>El tema, la pregunta y la hipótesis</li>
-          <li>Los cuatro modelos con la API de PyTorch (<code>nn.Module</code>)</li>
-          <li>Los loops de entrenamiento y evaluación</li>
-          <li>El código de poda (<code>lth.py</code>): máscaras, IMP y control</li>
-          <li>Correr los experimentos, el análisis y la interpretación</li>
+        <ul style="display:flex;flex-direction:column;gap:0.5vh;padding-left:1.2em;margin:0">
+          <li class="tiny">Tema, pregunta e hipótesis</li>
+          <li class="tiny">Los 4 modelos con <code>nn.Module</code></li>
+          <li class="tiny">Loops de entrenamiento y evaluación</li>
+          <li class="tiny">El código de poda <code>lth.py</code> (máscaras, IMP, control)</li>
+          <li class="tiny">Correr los experimentos, el análisis y la interpretación</li>
         </ul>
       </div>
       <div class="card" style="border-top:4px solid var(--ai)">
         <h3 style="color:var(--ai)">Apoyo de la IA</h3>
-        <ul style="display:flex;flex-direction:column;gap:0.8vh">
-          <li class="tiny">Guardado de pesos y máscaras</li>
-          <li class="tiny">Visualizaciones</li>
+        <ul style="display:flex;flex-direction:column;gap:0.5vh;padding-left:1.2em;margin:0">
+          <li class="tiny">Guardado de pesos y máscaras (checkpoints)</li>
+          <li class="tiny">Todas las visualizaciones</li>
           <li class="tiny">Revisión de código e hiperparámetros</li>
           <li class="tiny">Estructura del reporte y de esta presentación</li>
         </ul>
       </div>
+      <div class="card">
+        <h3>Herramientas nuevas</h3>
+        <p class="tiny"><b>marimo:</b> notebooks reactivos guardados como <code>.py</code> (buenos para git), exportables a HTML.</p>
+        <p class="tiny"><b>uv:</b> entornos de Python reproducibles (<code>uv.lock</code>).</p>
+        <p class="tiny"><b>Claude Code:</b> asistente en la terminal que lee el repo, edita y corre comandos con mi permiso.</p>
+      </div>
     </div>
-    <p class="tiny">El objetivo era aprender PyTorch construyendo yo las piezas importantes, y dedicar el tiempo a entender los resultados.</p>
+    <div class="row three">
+      <div class="bubble">"Can these models be exported so I can run experiments on them? Using masks to see how they turn out."</div>
+      <div class="bubble">"I wanna handpick from results to see what changes… also saving % of original params."</div>
+      <div class="bubble">"ViT longer has to have more epochs + maybe more aggressive data augmentation."</div>
+    </div>
+    <p class="tiny">Evolución: MLP → CNN → ResNet y ViT → comparación y rewinding → ViT más largo e inspección de máscaras. <span class="chip todo">Agregar los prompts de sesiones anteriores</span></p>
+  </div>
+</section>
+
+<section class="slide" id="s4">
+  <div class="kicker">Las dos arquitecturas grandes · para leer las figuras</div>
+  <h2>ResNet y ViT: qué se poda, y cómo leer las figuras</h2>
+  <div class="body">
+    <div class="row two">
+      <div class="card">
+        <h3>ResNet · 20 capas, 274K pesos</h3>
+        <div class="arch">
+          <span class="bx">conv 3×3</span><span class="ar">→</span><span class="bx">3 bloques<br>16 canales</span><span class="ar">→</span><span class="bx">3 bloques<br>32</span><span class="ar">→</span><span class="bx">3 bloques<br>64</span><span class="ar">→</span><span class="bx">pool + <code>fc</code></span>
+        </div>
+        <div class="arch">
+          <span class="bx">x</span><span class="ar">→</span><span class="bx">conv→BN→ReLU→conv→BN</span><span class="ar">→</span><span class="bx ok">+ x</span><span class="ar">→</span><span class="bx">ReLU</span>
+        </div>
+        <p class="tiny">Cada bloque suma su entrada a la salida (<i>skip connection</i>): el gradiente llega fácil a las primeras capas. Se podan solo las convoluciones, con poda <b>global</b>; <code>fc</code> (640 pesos) queda intacta. Entrena con lr 0.1, sin warmup.</p>
+      </div>
+      <div class="card">
+        <h3>ViT · 6 bloques, dim 192, 3 cabezas</h3>
+        <div class="arch">
+          <span class="bx">imagen 32×32</span><span class="ar">→</span><span class="bx"><code>patch_embed</code><br>64 parches 4×4 + [CLS]</span><span class="ar">→</span><span class="bx">6 bloques</span><span class="ar">→</span><span class="bx"><code>head</code> sobre [CLS]</span>
+        </div>
+        <div class="arch">
+          <span class="bx">LayerNorm</span><span class="ar">→</span><span class="bx"><code>qkv</code> → atención → <code>proj</code></span><span class="ar">→</span><span class="bx">LayerNorm</span><span class="ar">→</span><span class="bx"><code>mlp.0</code> → GELU → <code>mlp.2</code></span>
+        </div>
+        <p class="tiny">Cada parche es un token. En cada bloque, el [CLS] "mira" a los 64 parches (los mapas de atención son esa fila, en una cuadrícula de 8×8). Poda <b>global</b> sobre todas las capas, con warmup de lr.</p>
+      </div>
+    </div>
+    <table class="tb">
+      <tr><th></th><th>Optimizador</th><th>Épocas por ronda</th><th>Rondas</th><th>Poda</th><th>Punto de rewind</th></tr>
+      <tr><td>MLP · MNIST</td><td>Adam 1.2e-3</td><td>5</td><td>15</td><td>por capa</td><td>–</td></tr>
+      <tr><td>CNN · CIFAR-10</td><td>Adam 3e-4</td><td>30</td><td>10</td><td>por capa</td><td>–</td></tr>
+      <tr><td>ResNet</td><td>SGD lr 0.1 (÷10 dos veces)</td><td>77</td><td>10</td><td>global, solo conv</td><td>época 1</td></tr>
+      <tr><td>ViT</td><td>AdamW 1e-3, warmup 2 épocas</td><td>20</td><td>8</td><td>global</td><td>época 2</td></tr>
+      <tr><td>ViT largo</td><td>AdamW 1e-3, warmup 5, aumento fuerte</td><td>100</td><td>8</td><td>global</td><td>época 5</td></tr>
+    </table>
+    <p class="tiny">Los nombres en <code>código</code> son las filas de las figuras de inspección: cuántos pesos sobreviven en cada tipo de capa. Las arquitecturas difieren en más que su complejidad (optimizador, schedule, poda), y eso limita lo que se puede concluir.</p>
   </div>
 </section>
 
 <section class="slide" id="s5">
-  <div class="kicker">Herramientas aplicadas</div>
-  <h2>Lo que usé que no vimos en clase, y cómo trabajé con la IA</h2>
-  <div class="body">
-    <div class="row two">
-      <div class="card">
-        <h3>Herramientas</h3>
-        <p class="tiny"><b>PyTorch y torchvision</b> (vistos en clase): modelos, entrenamiento y aumento de datos.</p>
-        <p class="tiny"><b>marimo:</b> notebooks reactivos. Cada celda declara qué variables usa y, si cambia una, se recalculan las que dependen de ella. Se guardan como archivos <code>.py</code> (funcionan bien con git) y se exportan a HTML y PDF.</p>
-        <p class="tiny"><b>uv:</b> gestor de paquetes y entornos de Python; <code>uv sync</code> recrea el entorno exacto a partir de <code>uv.lock</code>.</p>
-        <p class="tiny"><b>Claude Code:</b> asistente de IA en la terminal que lee el repositorio, edita código y corre comandos con mi permiso. Lo usé para los checkpoints, las gráficas y la revisión.</p>
-      </div>
-      <div class="card">
-        <h3>Prompts y evolución de la idea</h3>
-        <div class="bubble">"Can these models be exported so I can run experiments on them? Using masks to see how they turn out."</div>
-        <div class="bubble">"I wanna handpick from results to see what changes… also saving % of original params."</div>
-        <div class="bubble">"ViT longer has to have more epochs + maybe more aggressive data augmentation."</div>
-        <p class="tiny">Evolución: MLP → CNN → ResNet y ViT → comparación y rewinding → ViT con más épocas e inspección de máscaras.</p>
-        <div><span class="chip todo">Agregar los prompts de sesiones anteriores</span></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="slide" id="s6">
   <div class="kicker">Resultados · 1 de 3</div>
   <h2>En las redes pequeñas, el boleto ya está en la inicialización</h2>
   <div class="body">
@@ -177,7 +208,7 @@ code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; font-size: 
   </div>
 </section>
 
-<section class="slide" id="s7">
+<section class="slide" id="s6">
   <div class="kicker">Resultados · 2 de 3</div>
   <h2>La ResNet necesita rebobinar; el ViT no</h2>
   <div class="body">
@@ -190,12 +221,12 @@ code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; font-size: 
   </div>
 </section>
 
-<section class="slide" id="s8">
+<section class="slide" id="s7">
   <div class="kicker">Resultados · 3 de 3</div>
   <h2>ViT con 100 épocas: ¿el ticket sigue por encima de la red densa?</h2>
   <div class="body">
     <div class="row" style="grid-template-columns: 1.6fr 1fr;">
-      <div class="chart"><h3>ViT · 100 épocas · rewind a la época 5 <span id="h-vitlong"></span></h3><div id="c-vitlong" style="height:44vh"></div></div>
+      <div class="chart"><h3>ViT · 100 épocas · rewind a la época 5 <span id="h-vitlong"></span></h3><div id="c-vitlong" style="height:34vh"></div></div>
       <div class="card" style="justify-content:center">
         <h3>Por qué repetirlo</h3>
         <p class="tiny">El ViT de 20 épocas llegó a 78.9% y parecía <b>subentrenado</b>, así que "el ticket supera a la red densa" podía ser solo un baseline débil.</p>
@@ -204,26 +235,36 @@ code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; font-size: 
         <p class="tiny" id="t-vitlong2"></p>
       </div>
     </div>
+    <div id="tb-vitlong"></div>
+  </div>
+</section>
+
+<section class="slide" id="s8">
+  <div class="kicker">Análisis de los tickets · ViT largo, con 11.6% de los pesos · una corrida</div>
+  <h2>La poda no es pareja entre capas ni entre clases</h2>
+  <div class="body">
+    <div class="row two big9">
+      <div class="card"><h3 class="f9">La poda global deja <code>head</code> con 21% y <code>mlp.2</code> con 1%</h3>
+        <img src="img/heat.png" alt="Fracción viva por capa">
+        <p class="tiny">Fracción de pesos vivos por tipo de capa en cada ronda (ticket). Con 3.2% de los pesos en total, la capa de salida y <code>patch_embed</code> (7%) pierden mucho menos que las capas MLP.</p></div>
+      <div class="card"><h3 class="f9">El ticket mejora o iguala al denso en cada clase; el aleatorio pierde en todas</h3>
+        <img src="img/cls.png" alt="Accuracy por clase">
+        <p class="tiny">Diferencia contra el denso (86.0%). Ticket −0.4 a +4.5 puntos, rewinding +0.7 a +5.5, aleatorio hasta −14.6 (pájaro). Banda gris: ruido de ±2.5 por clase.</p></div>
+    </div>
   </div>
 </section>
 
 <section class="slide" id="s9">
-  <div class="kicker">Análisis de los tickets · ViT largo, con 11.6% de los pesos · descripción; la interpretación va en el informe</div>
-  <h2>¿Qué estructura encontró la poda?</h2>
+  <div class="kicker">Análisis de los tickets · ViT largo, con 11.6% de los pesos · una corrida</div>
+  <h2>Atención y gradientes: qué cambia con la inicialización</h2>
   <div class="body">
-    <div class="grid9">
-      <div class="card" style="grid-row: span 2"><h3>Atención del [CLS]</h3>
-        <img src="img/attn.png" alt="Mapas de atención" style="height:44vh">
-        <p class="tiny">Último bloque, promedio de cabezas, 5 imágenes de prueba. El control aleatorio concentra la atención abajo; ticket y rewinding la reparten como el denso.</p></div>
-      <div class="card" style="grid-column: span 2"><h3>Pesos que sobreviven por capa (ticket)</h3>
-        <img src="img/heat.png" alt="Fracción viva por capa" style="height:19vh">
-        <p class="tiny">Poda global: con 3.2% de los pesos en total, <code>head</code> conserva 21%, <code>patch_embed</code> 7% y <code>mlp.2</code> solo 1%.</p></div>
-      <div class="card"><h3>Gradiente en el paso 0</h3>
-        <img src="img/grad.png" alt="Norma del gradiente" style="height:19vh">
-        <p class="tiny">Pesos vivos. El rewinding arranca con normas menores (<code>qkv</code> 0.10 vs. 0.29 del ticket).</p></div>
-      <div class="card"><h3>Accuracy por clase vs. denso</h3>
-        <img src="img/cls.png" alt="Accuracy por clase" style="height:19vh">
-        <p class="tiny">Ticket −0.4 a +4.5 pts; rewinding +0.7 a +5.5; aleatorio hasta −14.6 (pájaro). Gris: ruido ±2.5.</p></div>
+    <div class="row big9" style="grid-template-columns: 0.8fr 1.2fr">
+      <div class="card"><h3 class="f9">Atención del [CLS]: el aleatorio mira solo abajo</h3>
+        <img src="img/attn.png" alt="Mapas de atención" style="max-height:46vh">
+        <p class="tiny">Último bloque, 5 imágenes de prueba. Misma máscara que el ticket pero otra inicialización. <span class="o">La inicialización importa, no solo la estructura.</span></p></div>
+      <div class="card"><h3 class="f9">Gradiente en el paso 0: el rewinding parte con normas menores</h3>
+        <img src="img/grad.png" alt="Norma del gradiente">
+        <p class="tiny">Norma sobre los pesos vivos, por tipo de capa: <code>qkv</code> 0.10 con rewinding vs. 0.29 con el ticket. Posible lectura (sin probar): el warmup ya estabilizó esos pesos.</p><p class="tiny"><b>Cómo leerlo:</b> el gradiente mide cuánto cambiaría la pérdida al mover cada peso. Si es chico, el peso ya está cerca de donde la red lo quiere. El control aleatorio parte con normas parecidas al ticket (<code>head</code> 1.21 vs. 1.16), así que la diferencia entre ambos no parece estar en la escala inicial del gradiente.</p></div>
     </div>
   </div>
 </section>
@@ -323,6 +364,12 @@ try {
   }
 } catch (e) { console.warn(e); }
 if (DATA.cnn) set('h-cnn', '');
+try {
+  const l = DATA.vitlong, pts = [27.5, 11.6, 7.5, 4.9, 3.2], d0 = l.ticket[0][1];
+  const row = (name, cls, k) => `<tr><td class="${cls}">${name}</td>` + pts.map(p => `<td class="r">${f(at(l[k], p)[1])}</td>`).join('') + '</tr>';
+  const dl = (name, k) => `<tr><td>${name}</td>` + pts.map(p => { const d = (at(l[k], p)[1] - d0) * 100; return `<td class="r" style="color:var(${d >= 0 ? '--rewind' : '--random'})">${d >= 0 ? '+' : ''}${d.toFixed(1)}</td>`; }).join('') + '</tr>';
+  set('tb-vitlong', `<table class="tb"><tr><th>% de pesos</th>${pts.map(p => `<th class="r">${p}%</th>`).join('')}</tr>` + row('Ticket desde θ₀', 'hl2', 'ticket') + row('Ticket con rewinding (época 5)', 'gg', 'ticket_late') + row('Control: pesos nuevos', 'oo', 'random') + dl('Rewinding − denso (puntos)', 'ticket_late') + '</table>');
+} catch (e) { console.warn(e); }
 
 if (DATA.vitlong && DATA.vitlong_partial) set('h-vitlong', todo('corrida en curso'));
 
@@ -330,9 +377,9 @@ if (DATA.vitlong && DATA.vitlong_partial) set('h-vitlong', todo('corrida en curs
 const draw = {
   s1: () => net('net-hero', 0.14, {layers: [6, 9, 11, 9, 5]}),
   s2: () => { net('net-dense', 1); net('net-sparse', 0.12); },
-  s6: () => { chart('c-mlp', DATA.mlp); chart('c-cnn', DATA.cnn); },
-  s7: () => { chart('c-resnet', DATA.resnet); chart('c-vit', DATA.vit); },
-  s8: () => chart('c-vitlong', DATA.vitlong),
+  s5: () => { chart('c-mlp', DATA.mlp); chart('c-cnn', DATA.cnn); },
+  s6: () => { chart('c-resnet', DATA.resnet); chart('c-vit', DATA.vit); },
+  s7: () => chart('c-vitlong', DATA.vitlong),
 };
 const slides = [...document.querySelectorAll('.slide')];
 let i = Math.max(0, Math.min(slides.length - 1, (parseInt(location.hash.slice(1)) || 1) - 1));
