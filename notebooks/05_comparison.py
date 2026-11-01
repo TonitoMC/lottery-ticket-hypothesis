@@ -11,12 +11,12 @@ def _(mo):
     Este Notebook es parte del Proyecto Final del curso de Deep Learning.
 
     ## 05 - Comparación entre arquitecturas
-    Reúne los resultados guardados por los notebooks 01-04 (`results/*.json`) para responder las dos preguntas del proyecto:
+    Reúne los resultados guardados por los notebooks 01-05 (`results/*.json`) para responder las dos preguntas del proyecto:
 
     1. **¿Existen winning tickets en todas las arquitecturas?** Es decir, ¿el ticket supera consistentemente a la reinicialización aleatoria con la misma estructura?
     2. **¿Cuándo se "fija" un ticket?** ¿Regresar a la inicialización basta, o hace falta rebobinar a un punto posterior del entrenamiento? ¿Depende eso de la arquitectura?
 
-    > Este notebook no entrena nada: primero hay que correr los notebooks 01-04. Las arquitecturas cuyo archivo de resultados no exista se omiten.
+    > Este notebook no entrena nada: primero hay que correr los notebooks 01-05. Las arquitecturas cuyo archivo de resultados no exista se omiten.
 
     ## Imports - Setup
     """)
@@ -36,7 +36,8 @@ def _():
         "mlp_mnist": "MLP / MNIST",
         "cnn_cifar10": "CNN / CIFAR-10",
         "resnet18_cifar10": "ResNet-18 / CIFAR-10",
-        "vit_cifar10": "ViT / CIFAR-10",
+        "vit_cifar10": "ViT (20 ép.) / CIFAR-10",
+        "vit_longer": "ViT (100 ép.) / CIFAR-10",
     }
 
     runs = {}

@@ -11,7 +11,7 @@ def _(mo):
     Este Notebook es parte del Proyecto Final del curso de Deep Learning, este proyecto trata sobre un fenómeno conocido como el "Lottery Ticket Hypothesis" (LTH).
 
     ## 05 - ViT con entrenamiento más largo y más aumento de datos
-    En el notebook 04 el ViT denso llegó a 78.9% en 20 épocas, probablemente **subentrenado** (ver `NOTES.md`), y aun así el ticket podado quedó por encima del denso (82-83%). Antes de interpretar eso como "podar regulariza" hay que arreglar el baseline. Este notebook:
+    En el notebook 04 el ViT denso llegó a 78.9% en 20 épocas, probablemente **subentrenado** (ver `07_informe.py`), y aun así el ticket podado quedó por encima del denso (82-83%). Antes de interpretar eso como "podar regulariza" hay que arreglar el baseline. Este notebook:
 
     1. Entrena el ViT denso mucho más tiempo (`EPOCHS = 100`), con aumento de datos agresivo (RandAugment fuerte, random erasing, mixup / cutmix) y label smoothing, y guarda **accuracy de entrenamiento vs prueba por época** para ver si hay sobreajuste o subentrenamiento.
     2. Solo si el baseline se ve bien, corre IMP completo (`RUN_IMP = True`). Es caro: son 26 entrenamientos de `EPOCHS` épocas.

@@ -49,6 +49,8 @@ p, li { font-size: clamp(13px, 1.5vw, 22px); line-height: 1.42; margin: 0; }
 .read > div { border-left: 3px solid var(--line); padding-left: 1vw; display: flex; flex-direction: column; gap: 0.4vh; }
 .read > div > b { font-size: clamp(13px, 1.5vw, 22px); }
 .bubble { background: var(--bg2); border: 1px solid var(--line); border-radius: 14px 14px 14px 4px; padding: 1.1vh 0.9vw; font-size: clamp(11px, 1.2vw, 17px); }
+.grid9 { display: grid; grid-template-columns: 0.9fr 1fr 1fr; gap: 1.4vw; }
+.grid9 img { width: 100%; object-fit: contain; min-height: 0; border-radius: 8px; }
 .ph { border: 2px dashed var(--line); border-radius: 12px; background: var(--bg2); display: flex; align-items: center; justify-content: center; height: 20vh; }
 .ph svg { width: 85%; height: 85%; opacity: .55; }
 .nav { position: fixed; bottom: 2.2vh; left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: 1.2vw; color: var(--muted); font-size: 14px; z-index: 5; }
@@ -199,31 +201,30 @@ code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; font-size: 
         <p class="tiny">El ViT de 20 épocas llegó a 78.9% y parecía <b>subentrenado</b>, así que "el ticket supera a la red densa" podía ser solo un baseline débil.</p>
         <p class="tiny">Ahora: 100 épocas, más aumento de datos (RandAugment, random erasing, mixup/cutmix) y label smoothing.</p>
         <div id="t-vitlong"></div>
-        <div><span class="chip todo">Pendiente: rewinding y control aleatorio</span></div>
+        <p class="tiny" id="t-vitlong2"></p>
       </div>
     </div>
   </div>
 </section>
 
 <section class="slide" id="s9">
-  <div class="kicker">Análisis de los tickets · pendiente</div>
-  <h2>¿Qué estructura encontró la poda? Cuatro vistas de los checkpoints</h2>
+  <div class="kicker">Análisis de los tickets · ViT largo, con 11.6% de los pesos · descripción; la interpretación va en el informe</div>
+  <h2>¿Qué estructura encontró la poda?</h2>
   <div class="body">
-    <div class="row four">
-      <div class="card"><h3>Pesos por capa</h3>
-        <div class="ph"><svg viewBox="0 0 200 80"><g id="ph-heat"></g></svg></div>
-        <p class="tiny">Fracción viva por capa y por cabeza de atención. ¿Qué capas pierden más con poda global? ¿Queda alguna cabeza apagada?</p></div>
-      <div class="card"><h3>Atención</h3>
-        <div class="ph"><svg viewBox="0 0 200 80"><g id="ph-attn"></g></svg></div>
-        <p class="tiny">Atención del [CLS] en la red densa, el ticket, el rewinding y el control. ¿Cambia a dónde "mira" la red al podarla?</p></div>
-      <div class="card"><h3>Gradientes</h3>
-        <div class="ph"><svg viewBox="0 0 200 80"><g id="ph-grad"></g></svg></div>
-        <p class="tiny">Norma del gradiente al inicio del entrenamiento: inicialización del ticket vs. una nueva con la misma máscara.</p></div>
-      <div class="card"><h3>Accuracy por clase</h3>
-        <div class="ph"><svg viewBox="0 0 200 80"><g id="ph-cls"></g></svg></div>
-        <p class="tiny">Red densa vs. ticket más pequeño, clase por clase. ¿La poda daña más a las clases difíciles?</p></div>
+    <div class="grid9">
+      <div class="card" style="grid-row: span 2"><h3>Atención del [CLS]</h3>
+        <img src="img/attn.png" alt="Mapas de atención" style="height:44vh">
+        <p class="tiny">Último bloque, promedio de cabezas, 5 imágenes de prueba. El control aleatorio concentra la atención abajo; ticket y rewinding la reparten como el denso.</p></div>
+      <div class="card" style="grid-column: span 2"><h3>Pesos que sobreviven por capa (ticket)</h3>
+        <img src="img/heat.png" alt="Fracción viva por capa" style="height:19vh">
+        <p class="tiny">Poda global: con 3.2% de los pesos en total, <code>head</code> conserva 21%, <code>patch_embed</code> 7% y <code>mlp.2</code> solo 1%.</p></div>
+      <div class="card"><h3>Gradiente en el paso 0</h3>
+        <img src="img/grad.png" alt="Norma del gradiente" style="height:19vh">
+        <p class="tiny">Pesos vivos. El rewinding arranca con normas menores (<code>qkv</code> 0.10 vs. 0.29 del ticket).</p></div>
+      <div class="card"><h3>Accuracy por clase vs. denso</h3>
+        <img src="img/cls.png" alt="Accuracy por clase" style="height:19vh">
+        <p class="tiny">Ticket −0.4 a +4.5 pts; rewinding +0.7 a +5.5; aleatorio hasta −14.6 (pájaro). Gris: ruido ±2.5.</p></div>
     </div>
-    <div><span class="chip todo">Resultados pendientes: se generan con 06_inspection.py al terminar la corrida del ViT</span></div>
   </div>
 </section>
 
@@ -232,7 +233,7 @@ code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; font-size: 
   <h2>Qué podemos decir y qué no</h2>
   <div class="body">
     <div class="row three">
-      <div class="card"><div class="big hl">1</div><h3>Los tickets existen</h3><p class="tiny">En el MLP, la CNN y el ViT, el ticket desde θ₀ iguala o supera a la red densa y le gana al control con pesos nuevos.</p></div>
+      <div class="card"><div class="big hl">1</div><h3>Los tickets existen</h3><p class="tiny">En el MLP, la CNN y el ViT, el ticket desde θ₀ iguala o supera a la red densa y le gana al control con pesos nuevos. El ViT de 100 épocas lo confirma con un baseline mejor (86.0%); ahí el rewinding ayuda por debajo de ~8% de los pesos.</p></div>
       <div class="card"><div class="big g">2</div><h3>La ResNet necesita rebobinar</h3><p class="tiny">Con lr 0.1, regresar a θ₀ no basta (igual que el control). Rebobinar a la época 1 recupera casi toda la accuracy.</p></div>
       <div class="card"><div class="big o">3</div><h3>"Más compleja → más tarde": compatible, no probado</h3><p class="tiny">Hay uno o dos puntos de rewind por arquitectura, y además cambian datos, optimizador y poda. Un barrido de <i>k</i> con varias semillas queda como trabajo futuro.</p></div>
     </div>
@@ -244,7 +245,7 @@ code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; font-size: 
 <div class="nav"><button id="prev" aria-label="Anterior">←</button><span id="dots"></span><span id="count"></span><button id="next" aria-label="Siguiente">→</button></div>
 
 <script>
-const DATA = {"mlp": {"ticket": [[100.0, 0.9766], [80.0, 0.9784], [64.0, 0.9778], [51.2, 0.9785], [40.96, 0.9809], [32.77, 0.9802], [26.22, 0.9808], [20.97, 0.9812], [16.78, 0.9824], [13.42, 0.9813], [10.74, 0.9787], [8.59, 0.9792], [6.87, 0.9785], [5.5, 0.9761], [4.4, 0.9764], [3.52, 0.9745]], "random": [[100.0, 0.9803], [80.0, 0.9761], [64.0, 0.9787], [51.2, 0.9754], [40.96, 0.9758], [32.77, 0.9739], [26.22, 0.9744], [20.97, 0.9749], [16.78, 0.9748], [13.42, 0.9725], [10.74, 0.9725], [8.59, 0.9649], [6.87, 0.9657], [5.5, 0.9611], [4.4, 0.9604], [3.52, 0.9599]]}, "cnn": {"ticket": [[100.0, 0.7301], [80.0, 0.7494], [64.0, 0.7453], [51.2, 0.7618], [40.96, 0.7707], [32.77, 0.7723], [26.21, 0.7501], [20.97, 0.7258], [16.78, 0.6143], [13.42, 0.6258], [10.74, 0.5297]], "random": [[100.0, 0.7299], [80.0, 0.7378], [64.0, 0.7256], [51.2, 0.7091], [40.96, 0.7025], [32.77, 0.6876], [26.21, 0.7006], [20.97, 0.6753], [16.78, 0.6599], [13.42, 0.6144], [10.74, 0.6115]]}, "resnet": {"ticket": [[100.0, 0.9087], [80.0, 0.9129], [64.0, 0.9044], [51.2, 0.9036], [40.96, 0.8984], [32.77, 0.8945], [26.21, 0.8887], [20.97, 0.8856], [16.78, 0.8781], [13.42, 0.8723], [10.74, 0.8632]], "ticket_late": [[100.0, 0.9087], [80.0, 0.9075], [64.0, 0.9074], [51.2, 0.905], [40.96, 0.9089], [32.77, 0.9077], [26.21, 0.9056], [20.97, 0.9065], [16.78, 0.9035], [13.42, 0.8999], [10.74, 0.8961]], "random": [[100.0, 0.9111], [80.0, 0.912], [64.0, 0.9091], [51.2, 0.9052], [40.96, 0.9041], [32.77, 0.8955], [26.21, 0.8911], [20.97, 0.8847], [16.78, 0.88], [13.42, 0.8704], [10.74, 0.8645]]}, "vit": {"ticket": [[100.0, 0.7888], [65.0, 0.8143], [42.25, 0.8264], [27.46, 0.824], [17.85, 0.8221], [11.6, 0.826], [7.54, 0.8233], [4.9, 0.8173], [3.19, 0.8004]], "ticket_late": [[100.0, 0.7888], [65.0, 0.8041], [42.25, 0.8155], [27.46, 0.8188], [17.85, 0.8184], [11.6, 0.8192], [7.54, 0.8208], [4.9, 0.8087], [3.19, 0.7956]], "random": [[100.0, 0.7854], [65.0, 0.8054], [42.25, 0.793], [27.46, 0.7843], [17.85, 0.7656], [11.6, 0.7145], [7.54, 0.7029], [4.9, 0.6837], [3.19, 0.6588]]}, "vitlong": {"ticket": [[100.0, 0.8595], [65.0, 0.8789], [42.3, 0.8856], [27.5, 0.8895], [17.9, 0.8895], [11.6, 0.881], [7.5, 0.8314], [4.9, 0.8043], [3.2, 0.7726]], "random": [[100.0, 0.8574], [65.0, 0.8656], [42.3, 0.8645]]}, "vitlong_partial": true};
+const DATA = {"mlp": {"ticket": [[100.0, 0.9766], [80.0, 0.977], [64.0, 0.9798], [51.2, 0.9808], [40.96, 0.9783], [32.77, 0.9815], [26.22, 0.9818], [20.97, 0.9808], [16.78, 0.9814], [13.42, 0.9821], [10.74, 0.9815], [8.59, 0.9794], [6.87, 0.9797], [5.5, 0.9766], [4.4, 0.9731], [3.52, 0.9723]], "random": [[100.0, 0.9785], [80.0, 0.9769], [64.0, 0.9743], [51.2, 0.9803], [40.96, 0.9766], [32.77, 0.9755], [26.22, 0.9776], [20.97, 0.9727], [16.78, 0.9744], [13.42, 0.9746], [10.74, 0.9704], [8.59, 0.9714], [6.87, 0.9668], [5.5, 0.9624], [4.4, 0.9578], [3.52, 0.9573]]}, "cnn": {"ticket": [[100.0, 0.7301], [80.0, 0.7494], [64.0, 0.7453], [51.2, 0.7618], [40.96, 0.7707], [32.77, 0.7723], [26.21, 0.7501], [20.97, 0.7258], [16.78, 0.6143], [13.42, 0.6258], [10.74, 0.5297]], "random": [[100.0, 0.7299], [80.0, 0.7378], [64.0, 0.7256], [51.2, 0.7091], [40.96, 0.7025], [32.77, 0.6876], [26.21, 0.7006], [20.97, 0.6753], [16.78, 0.6599], [13.42, 0.6144], [10.74, 0.6115]]}, "resnet": {"ticket": [[100.0, 0.9087], [80.0, 0.9129], [64.0, 0.9044], [51.2, 0.9036], [40.96, 0.8984], [32.77, 0.8945], [26.21, 0.8887], [20.97, 0.8856], [16.78, 0.8781], [13.42, 0.8723], [10.74, 0.8632]], "ticket_late": [[100.0, 0.9087], [80.0, 0.9075], [64.0, 0.9074], [51.2, 0.905], [40.96, 0.9089], [32.77, 0.9077], [26.21, 0.9056], [20.97, 0.9065], [16.78, 0.9035], [13.42, 0.8999], [10.74, 0.8961]], "random": [[100.0, 0.9111], [80.0, 0.912], [64.0, 0.9091], [51.2, 0.9052], [40.96, 0.9041], [32.77, 0.8955], [26.21, 0.8911], [20.97, 0.8847], [16.78, 0.88], [13.42, 0.8704], [10.74, 0.8645]]}, "vit": {"ticket": [[100.0, 0.7888], [65.0, 0.8143], [42.25, 0.8264], [27.46, 0.824], [17.85, 0.8221], [11.6, 0.826], [7.54, 0.8233], [4.9, 0.8173], [3.19, 0.8004]], "ticket_late": [[100.0, 0.7888], [65.0, 0.8041], [42.25, 0.8155], [27.46, 0.8188], [17.85, 0.8184], [11.6, 0.8192], [7.54, 0.8208], [4.9, 0.8087], [3.19, 0.7956]], "random": [[100.0, 0.7854], [65.0, 0.8054], [42.25, 0.793], [27.46, 0.7843], [17.85, 0.7656], [11.6, 0.7145], [7.54, 0.7029], [4.9, 0.6837], [3.19, 0.6588]]}, "vitlong": {"ticket": [[100.0, 0.8595], [65.0, 0.8789], [42.25, 0.8856], [27.46, 0.8895], [17.85, 0.8895], [11.6, 0.881], [7.54, 0.8314], [4.9, 0.8043], [3.19, 0.7726]], "ticket_late": [[100.0, 0.8595], [65.0, 0.8793], [42.25, 0.8878], [27.46, 0.8945], [17.85, 0.8912], [11.6, 0.8841], [7.54, 0.8659], [4.9, 0.8369], [3.19, 0.7843]], "random": [[100.0, 0.8574], [65.0, 0.8656], [42.25, 0.8645], [27.46, 0.841], [17.85, 0.8172], [11.6, 0.7796], [7.54, 0.7533], [4.9, 0.7149], [3.19, 0.6853]]}, "vitlong_partial": false};
 const cs = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
 // Gráfica con el tamaño real del contenedor (solo se dibuja cuando la diapositiva está visible)
@@ -316,23 +317,14 @@ try {
   set('t-vit', `<b>ViT</b><p class="tiny">Transformer que parte la imagen en 64 parches. Con ~11% de los pesos el ticket tiene <span class="hl">${f(v11[1])}</span>, más que la red completa (${f(v.ticket[0][1])}); el control cae a <span class="o">${f(vr[1])}</span>. Rebobinar no mejora. Posible razón (sin probar): el <i>warmup</i>, un learning rate pequeño al inicio, ya estabiliza el arranque.</p>`);
   if (l) {
     const lt = l.ticket.at(-1), best2 = Math.max(...l.ticket.map(p => p[1]));
-    set('t-vitlong', `<div style="display:flex;gap:2vw;align-items:baseline"><div><span class="big" style="color:var(--muted)">${f(l.ticket[0][1])}</span><br><span class="tiny">red completa (antes 78.9%)</span></div><div><span class="big hl">${f(best2)}</span><br><span class="tiny">mejor ticket hasta ahora (${lt[0]}% de pesos: ${f(lt[1])})</span></div></div>`);
+    set('t-vitlong', `<div style="display:flex;gap:2vw;align-items:baseline"><div><span class="big" style="color:var(--muted)">${f(l.ticket[0][1])}</span><br><span class="tiny">red completa (antes 78.9%)</span></div><div><span class="big hl">${f(best2)}</span><br><span class="tiny">mejor ticket (rewinding)</span></div></div>`);
+    const q = k => at(l[k], 7.5), q2 = k => at(l[k], 3.2);
+    set('t-vitlong2', `Con 7.5% de los pesos: ticket desde θ₀ <span class="hl">${f(q('ticket')[1])}</span>, con rewinding a la época 5 <span class="g">${f(q('ticket_late')[1])}</span>, control con pesos nuevos <span class="o">${f(q('random')[1])}</span>. El ticket está por encima de la red completa hasta ~12% de los pesos.`);
   }
 } catch (e) { console.warn(e); }
 if (DATA.cnn) set('h-cnn', '');
 
 if (DATA.vitlong && DATA.vitlong_partial) set('h-vitlong', todo('corrida en curso'));
-
-// Esqueletos de las figuras pendientes (no son datos)
-function skeletons() {
-  const c = cs('--muted'); let h = '', a = '', g = '', k = '';
-  for (let r = 0; r < 6; r++) for (let q = 0; q < 14; q++) h += `<rect x="${8 + q * 13.5}" y="${6 + r * 11.5}" width="12" height="10" rx="2" fill="${c}" opacity="${0.15 + 0.7 * ((r * 5 + q * 3) % 10) / 10}"/>`;
-  for (let r = 0; r < 8; r++) for (let q = 0; q < 8; q++) a += `<rect x="${60 + q * 10}" y="${r * 9.5 + 2}" width="9" height="8.5" fill="${c}" opacity="${0.1 + 0.8 * Math.exp(-((r - 3) ** 2 + (q - 4) ** 2) / 6)}"/>`;
-  [0.8, 0.5, 0.35, 0.6, 0.25, 0.7].forEach((v, i) => { g += `<rect x="${15 + i * 29}" y="${75 - v * 65}" width="20" height="${v * 65}" fill="${c}" opacity=".5"/>`; });
-  [0.7, 0.9, 0.5, 0.4, 0.6, 0.8, 0.55, 0.75].forEach((v, i) => { k += `<rect x="${10 + i * 23}" y="${75 - v * 65}" width="14" height="${v * 65}" fill="${c}" opacity=".5"/><rect x="${24 + i * 23}" y="${75 - v * 58}" width="6" height="${v * 58}" fill="var(--rewind)" opacity=".5"/>`; });
-  document.getElementById('ph-heat').innerHTML = h; document.getElementById('ph-attn').innerHTML = a;
-  document.getElementById('ph-grad').innerHTML = g; document.getElementById('ph-cls').innerHTML = k;
-}
 
 // ---- navegación: las gráficas se dibujan al mostrar cada diapositiva ----
 const draw = {
@@ -341,7 +333,6 @@ const draw = {
   s6: () => { chart('c-mlp', DATA.mlp); chart('c-cnn', DATA.cnn); },
   s7: () => { chart('c-resnet', DATA.resnet); chart('c-vit', DATA.vit); },
   s8: () => chart('c-vitlong', DATA.vitlong),
-  s9: () => skeletons(),
 };
 const slides = [...document.querySelectorAll('.slide')];
 let i = Math.max(0, Math.min(slides.length - 1, (parseInt(location.hash.slice(1)) || 1) - 1));

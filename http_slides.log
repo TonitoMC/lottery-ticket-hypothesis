@@ -197,3 +197,25 @@
 127.0.0.1 - - [31/Oct/2026 19:49:56] "GET /slides.html HTTP/1.1" 304 -
 127.0.0.1 - - [31/Oct/2026 20:43:18] "GET /slides.html HTTP/1.1" 200 -
 127.0.0.1 - - [31/Oct/2026 20:43:41] "GET /slides.html HTTP/1.1" 200 -
+127.0.0.1 - - [31/Oct/2026 23:17:06] "GET /slides.html HTTP/1.1" 200 -
+127.0.0.1 - - [31/Oct/2026 23:17:10] "GET /slides.html HTTP/1.1" 200 -
+127.0.0.1 - - [31/Oct/2026 23:17:10] "GET /img/heat.png HTTP/1.1" 200 -
+127.0.0.1 - - [31/Oct/2026 23:17:10] "GET /img/attn.png HTTP/1.1" 200 -
+127.0.0.1 - - [31/Oct/2026 23:17:10] "GET /img/grad.png HTTP/1.1" 200 -
+127.0.0.1 - - [31/Oct/2026 23:17:10] "GET /img/cls.png HTTP/1.1" 200 -
+127.0.0.1 - - [31/Oct/2026 23:17:10] code 404, message File not found
+127.0.0.1 - - [31/Oct/2026 23:17:10] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [31/Oct/2026 23:17:10] "GET /slides.html HTTP/1.1" 200 -
+127.0.0.1 - - [31/Oct/2026 23:17:10] "GET /img/attn.png HTTP/1.1" 200 -
+127.0.0.1 - - [31/Oct/2026 23:17:10] "GET /img/heat.png HTTP/1.1" 200 -
+127.0.0.1 - - [31/Oct/2026 23:17:10] "GET /img/cls.png HTTP/1.1" 200 -
+127.0.0.1 - - [31/Oct/2026 23:17:10] "GET /img/grad.png HTTP/1.1" 200 -
+127.0.0.1 - - [31/Oct/2026 23:17:10] code 404, message File not found
+127.0.0.1 - - [31/Oct/2026 23:17:10] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [31/Oct/2026 23:17:36] "GET /slides.html HTTP/1.1" 200 -
+127.0.0.1 - - [31/Oct/2026 23:17:36] "GET /img/attn.png HTTP/1.1" 200 -
+127.0.0.1 - - [31/Oct/2026 23:17:36] "GET /img/heat.png HTTP/1.1" 200 -
+127.0.0.1 - - [31/Oct/2026 23:17:36] "GET /img/grad.png HTTP/1.1" 200 -
+127.0.0.1 - - [31/Oct/2026 23:17:36] "GET /img/cls.png HTTP/1.1" 200 -
+127.0.0.1 - - [31/Oct/2026 23:17:36] code 404, message File not found
+127.0.0.1 - - [31/Oct/2026 23:17:36] "GET /favicon.ico HTTP/1.1" 404 -

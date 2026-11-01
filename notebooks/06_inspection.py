@@ -212,6 +212,9 @@ def _(at_target, ckpt, mo):
     _rows = ["| Capa | Forma | Pesos vivos | Unidades de salida vacías | Entradas vacías |", "|---|---|---:|---:|---:|"]
     for _n, _m in masks_t.items():
         _alive = _m.float().mean().item()
+        if _m.dim() < 2:
+            _rows.append(f"| `{_n}` | {tuple(_m.shape)} | {int(_m.sum())} / {_m.numel()} ({_alive:.1%}) | - | - |")
+            continue
         _out = _m.reshape(_m.shape[0], -1).any(dim=1)
         _inp = _m.transpose(0, 1).reshape(_m.shape[1], -1).any(dim=1)
         _rows.append(f"| `{_n}` | {tuple(_m.shape)} | {int(_m.sum())} / {_m.numel()} ({_alive:.1%}) | {int((~_out).sum())} / {len(_out)} | {int((~_inp).sum())} / {len(_inp)} |")
@@ -221,7 +224,7 @@ def _(at_target, ckpt, mo):
 
 @app.cell
 def _(masks_t, np, plt):
-    _names = list(masks_t.keys())
+    _names = [_n for _n, _v in masks_t.items() if _v.dim() >= 2]
     _fig, _axes = plt.subplots(len(_names), 2, figsize=(9, 2.3 * len(_names)), squeeze=False)
     for _i, _n in enumerate(_names):
         _m = masks_t[_n].float()

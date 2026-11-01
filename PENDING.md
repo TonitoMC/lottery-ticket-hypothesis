@@ -1,56 +1,59 @@
 # Pending
 
-What is left as of 2026-10-31. `NOTES.md` has the first-run results and the original open items; this file is the current to-do list. Not decided yet = marked **(decide)**.
+As of 2026-10-31 (night). All training is finished except one optional run. Everything else left is writing.
 
-## Due tomorrow: what actually gets done
+## 1. Run the pending experiment (optional): `02b_cnn_global.py`
 
-Deadline is tomorrow, so the list below is cut down. Everything else in this file is "future work" and gets one line in the report.
+Repeats the CNN with **global** instead of per-layer pruning, to check whether that is why the 10.7% point collapses (ticket 53.0% vs. random 61.2%, reproduced in a second run; masks at that point show 7/64 empty filters in the first conv and 102/256 empty hidden units).
 
-1. **ViT 05 run** finishes on its own (~22:00). Then open `06_inspection.py` on it and take the plots.
-2. **CNN 02 re-run, once** (no seeds). Only to see whether the 10.7% collapse reproduces. Checkpoints for 06 section 1 come for free.
-3. **Update `05_comparison.py`** to include `results/vit_longer.json`, and write the report from `NOTES.md` plus the final numbers.
-4. **Claims we can make:** rewinding is needed for the ResNet (k=1 beats k=0 by ~3 points at 10.7%), not for the MLP, and for the ViT the plain ticket already works (04, and 05 once finished). "More complex means later" is only supported qualitatively, from one or two rewind points per architecture. Say that plainly in the report, single seed, and don't claim more.
-5. **Dropped (future work):** the rewind-epoch sweep, CNN/MLP rewinding, seeds + significance tests, re-running 01/03/04 for checkpoints, the 03 cell cleanup, the numbering rename.
+- About 75 minutes alone on the GPU. Writes `results/cnn_global_cifar10.json` and `checkpoints/02b_cnn_global/`. Its last cell plots per-layer (02) vs. global.
+- If it is **not** run: the report already words the cause as "possible, not proven". Nothing else breaks.
+- If it **is** run: update the CNN paragraph in `07_informe.py` (section 4), the CNN text on slide 6 (`presentation/template.html`, `t-cnn`) and discussion question 7, then rebuild (commands at the bottom).
 
-## Running now
+## 2. Your analysis (the part that is yours)
 
-- **`05_vit_longer.py`** (100 epochs, RandAugment + random erasing + mixup/cutmix + label smoothing, rewind to epoch 5). Started 2026-10-31 ~18:00, expected to finish around 22:00. Log: `vit_longer.log`. Checkpoints: `checkpoints/05_vit_longer/` (written after every round).
-  - Dense baseline: 85.95% test (04 had 78.9%), train 90.3% on clean images.
-  - Ticket so far is ~3 points above dense (87.9-89.0% at 65-18% of weights). Wait for the random curve before reading anything into it.
-- When it finishes: open `06_inspection.py` on that folder and look at all four sections.
+In `notebooks/07_informe.py`, every **[POR COMPLETAR]** block, with the guiding questions already written under it:
 
-## Experiments still missing
+- Section 5, after the long-ViT table: why rewinding only helps at the sparsest points, and how that relates to 04.
+- Section 6, after the figures: layer survival (`head` / `patch_embed` keep more), the random control's attention concentrating at the bottom, gradient norms at step 0, per-class differences.
+- Section 7 (Discusión): read the "Qué sí apoyan" and "Limitaciones" bullets and edit to your own words.
+- Section 8: the 12 discussion questions. Keep, cut or reword; each says which experiment would answer it.
+- `06_inspection.html` has more views than the report shows (qkv per head, ticket-vs-rewind IoU, mask shapes, entropy). Pick what you want to discuss.
 
-1. **CNN (02) re-run, with seeds.** Check whether the 10.7% collapse (49.7%, below random 61.0%) reproduces. Look at per-layer survivors in `06_inspection.py` section 1 (02 prunes per layer, so a layer that deviates is suspect). Needs a seed loop, since no seeds are set anywhere.
-2. **CNN rewinding / epoch resets.** 02 only resets to init. Add a rewind curve so it can be compared with 03 and 04.
-3. **MLP rewinding (optional).** The plain ticket already matches dense, so this would just show a flat line.
-4. **Rewind-epoch sweep across all four architectures (decide).** Same k values (e.g. 0, 1, 2, 5, 10) at one fixed sparsity, accuracy vs k per architecture. This is what tests the proposal's hypothesis ("the more complex the network, the later the ticket appears"). Today the evidence is ResNet k=0 vs k=1, ViT k=0 vs k=2 (04) and k=5 (05), MLP/CNN nothing. Needs the dense runs to save snapshots at several epochs, not just one.
-5. **Significance** (from `NOTES.md`): Wilcoxon over curve points (ticket vs random) from the JSONs, binomial CIs on single accuracies, paired test once seeds exist.
+Then transcribe to LaTeX. The figures to reuse are in `presentation/img/*.png`; the numbers come from `results/*.json`.
 
-## Re-runs for checkpoints
+Slides (`presentation/template.html`):
 
-01, 02, 03 and 04 were run before checkpoint saving existed, so they have no weights or masks to inspect. All four notebooks now call `lth.save_base` and pass `save_dir`, so a re-run saves them. Rough times: 01 minutes, 02 maybe 30-60 min, 03 ~1h45m, 04 ~45 min. Re-runs overwrite `results/*.json` (which `05_comparison.py` reads) and the numbers will shift a little, since there are no seeds. Run them one at a time, not alongside the ViT job.
+- Slide 5 still has a "Agregar los prompts de sesiones anteriores" chip: paste your prompts there and add any detail on marimo / Claude Code.
+- Slide 9 only describes the figures; add your reading if you want it on the slide.
+- Re-read slide 10 against your conclusions.
 
-- 03: remove the parameter-count cell and the markdown above it (`03_resnet18_cifar10.py` ~lines 209-220) before re-exporting.
-- Re-export the HTML for any notebook that changes.
+## 3. Things to keep straight when writing
 
-## Code
+- **Augmentation:** 03, 04 use flip + 4-pixel pad/crop (03 follows [1], Appendix I.3). 01, 02 use none. 05 adds RandAugment, random erasing, mixup/cutmix and label smoothing.
+- **Epoch 1 in 03 is a rewind, not a reinit:** the dense net's weights after 1 epoch (391 steps). 04 rewinds after 2 epochs, 05 after 5 (end of warmup).
+- **ViT vs [5]:** [5] says weight-level tickets are hard to find in ViTs. Ours stay above dense, so hedge it (pruning-as-regularizer is untested).
+- **One seed everywhere, CUDA not deterministic.** Differences of ~1 point or less are noise. The ticket-vs-random gaps (5-9 points) are not.
+- **Pruning scope:** 01, 02 per layer; 03, 04, 05 global. The LayerNorm weights in the ViT are pruned too.
+- **Checkpoints exist only for** 01, 02 and 05; 03 and 04 predate the saving code (their inspection would need a rerun, ~1h45m and ~45m).
+- **Cost:** ~10 GPU-hours in total, ~4 kWh.
 
-- **`06_inspection.py`**: sections 2-4 (per-class accuracy, attention, gradients) only work for the ViT because the model class lives in the notebook. Sections 1 (mask survival) works on any checkpoint folder. Paste in the CNN / ResNet / MLP classes if those need the other sections.
-- Only tested on a toy checkpoint folder so far, not on real data.
+## 4. Not done, to mention as future work
 
-## Writing
+Rewind-epoch sweep (the actual test of "more complex means later"), several seeds + significance tests (McNemar on saved predictions is the cheap one), warmup on/off for ResNet and ViT, cross-dataset transfer, SVHN, a permuted-values control for the random reinit.
 
-- **Report notebook** built from `NOTES.md`, with plots from the JSONs.
-- **Numbering (decide):** `05_vit_longer.py`, `05_comparison.py` and `06_inspection.py` now exist. Rename `05_comparison.py` (e.g. to `07_comparison.py`) or leave as is.
-- Hedge the ViT-above-dense result in the report ([5] says weight-level tickets are hard to find in ViTs).
+## 5. Loose ends
 
-## Cleanup
+- Empty `notebooks/02_mlp_mnist.py` can be deleted.
+- `05_comparison.py` is numbered like `05_vit_longer.py`; rename (e.g. to `08_comparison.py`) or leave.
+- The `*.log` files in the project root are tracked or untracked at random; add `*.log` to `.gitignore` if you do not want them in git.
+- `03_resnet18_cifar10.py` still has a parameter-count cell (~lines 209-220), harmless.
 
-- Delete the empty `notebooks/02_mlp_mnist.py`.
-- `vit_longer.log` and `vit_longer_dense_first_attempt.log` in the project root are untracked.
+## Commands
 
-## Not doing
-
-- Cross-dataset ticket transfer.
-- SVHN (04b).
+```bash
+python3 presentation/build.py                                   # slides from results/*.json
+cd notebooks && uv run python ../presentation/make_figs.py      # slide 9 figures from checkpoints
+cd notebooks && uv run marimo export html 07_informe.py -o 07_informe.html
+cd notebooks && INSPECT_DIR=../checkpoints/05_vit_longer INSPECT_PCT=10 uv run marimo export html 06_inspection.py -o 06_inspection.html
+```
