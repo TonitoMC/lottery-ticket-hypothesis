@@ -18,7 +18,7 @@ def _(mo):
     - Regresar a la época 1 del entrenamiento (rewinding).
     - La misma estructura con pesos aleatorios (control).
 
-    Es el núcleo de la pregunta del proyecto: *¿cuándo se "fija" un ticket?* Las referencias numeradas están en `REFERENCES.md`.
+    Es el núcleo de la pregunta del proyecto: *¿cuándo se "fija" un ticket?* Las referencias numeradas están en la bibliografía del informe (`report/informe.tex`).
 
     ## Imports - Setup
     """)

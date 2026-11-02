@@ -1,0 +1,66 @@
+{
+ "n_imagenes": 150,
+ "n_todos_aciertan": 109,
+ "pares": {
+  "denso vs ticket": {
+   "att": {
+    "todas": 0.6313934676434676,
+    "todos_aciertan": 0.6322104882884698
+   },
+   "occ": {
+    "todas": 0.48043315018315014,
+    "todos_aciertan": 0.4650447793796417
+   }
+  },
+  "denso vs rewinding": {
+   "att": {
+    "todas": 0.6989908424908424,
+    "todos_aciertan": 0.6916128978055582
+   },
+   "occ": {
+    "todas": 0.49055769230769225,
+    "todos_aciertan": 0.49145831232987186
+   }
+  },
+  "denso vs aleatorio": {
+   "att": {
+    "todas": 0.17303479853479853,
+    "todos_aciertan": 0.15711009174311927
+   },
+   "occ": {
+    "todas": 0.34632326007326003,
+    "todos_aciertan": 0.3354214974627818
+   }
+  },
+  "ticket vs rewinding": {
+   "att": {
+    "todas": 0.7323785103785102,
+    "todos_aciertan": 0.729628742816816
+   },
+   "occ": {
+    "todas": 0.5497081807081806,
+    "todos_aciertan": 0.5475333534966562
+   }
+  },
+  "ticket vs aleatorio": {
+   "att": {
+    "todas": 0.2846788766788766,
+    "todos_aciertan": 0.2733512282824209
+   },
+   "occ": {
+    "todas": 0.34829609279609275,
+    "todos_aciertan": 0.3386753536982894
+   }
+  },
+  "rewinding vs aleatorio": {
+   "att": {
+    "todas": 0.24236904761904762,
+    "todos_aciertan": 0.22768760291696072
+   },
+   "occ": {
+    "todas": 0.32735134310134306,
+    "todos_aciertan": 0.3248794401317337
+   }
+  }
+ }
+}

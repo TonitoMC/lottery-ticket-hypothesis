@@ -38,3 +38,7 @@ checkpoints/**/*.pt
 !checkpoints/05_vit_longer/ticket_r07_*.pt
 !checkpoints/05_vit_longer/random_r07_*.pt
 !checkpoints/05_vit_longer/late_r07_*.pt
+
+report/*.bcf
+report/*.run.xml
+report/*-SAVE-ERROR

@@ -13,7 +13,7 @@ def _(mo):
     ## 04 - CIFAR-10 Vision Transformer
     Última arquitectura: un **ViT pequeño** entrenado desde cero en CIFAR-10. Los transformers son conocidos por ser **inestables al inicio del entrenamiento** (de ahí el warmup del learning rate), así que son un buen caso para la pregunta del proyecto: si esa inestabilidad temprana es lo que impide que un ticket se fije en la inicialización, el ViT podría beneficiarse del *rewinding* [2].
 
-    Ojo: [5] reporta que en DeiT-Small (ImageNet) los winning tickets son difíciles de encontrar incluso con rewinding. Aquí es un ViT mucho más pequeño en CIFAR-10, así que no se puede asumir el mismo resultado, pero ninguna curva de ticket superando a la aleatoria también sería un resultado válido. Las referencias numeradas están en `REFERENCES.md`.
+    Ojo: [5] reporta que en DeiT-Small (ImageNet) los winning tickets son difíciles de encontrar incluso con rewinding. Aquí es un ViT mucho más pequeño en CIFAR-10, así que no se puede asumir el mismo resultado, pero ninguna curva de ticket superando a la aleatoria también sería un resultado válido. Las referencias numeradas están en la bibliografía del informe (`report/informe.tex`).
 
     Como en el notebook 03 se compara regresar a la inicialización, regresar a la época 2 (rewinding) y la misma estructura con pesos aleatorios.
 

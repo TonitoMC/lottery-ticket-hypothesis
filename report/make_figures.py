@@ -8,7 +8,7 @@ Salida (report/figures/): un .pdf (para LaTeX) y un .png por figura, tables.tex 
 para \\input) y index.html (galería con todas las figuras y cómo leerlas).
 
 Las figuras que usan checkpoints del ViT (heat, cls, attn, grad, entropy) leen checkpoints/05_vit_longer
-y results/inspection_05_vit_longer.json (este último lo genera notebooks/06_inspection.py).
+y results/inspection_05_vit_longer.json (este último lo genera notebooks/07_inspection.py).
 El código de las figuras fue generado con ayuda de IA; los datos son los de las corridas.
 """
 import argparse
@@ -60,10 +60,54 @@ def figure(fid, title, reading):
     return deco
 
 
+DARK = "--dark" in sys.argv  # versiones para las diapositivas: fondo transparente, colores del tema oscuro (solo los diagramas)
+_DARK_MAP = {
+    # texto y trazos
+    "#000000": "#f2f3f8", "#444444": "#c8cde0", "#555555": "#a3acc9", "#666666": "#a3acc9", "#777777": "#a3acc9", "#888888": "#8f98b8",
+    "#1d7a54": "#3ddc97", "#2a9d6f": "#3ddc97", "#d97f00": "#ffb454", "#8e5fd0": "#c9a7ff", "#1f77b4": "#6ea8ff", "#bbbbbb": "#4a5280", "#aaaaaa": "#4a5280",
+    # rellenos
+    "#d6efdf": "#1b4a3f", "#eeeeee": "#2b3157", "#fde6c8": "#523c1a", "#e6dcf5": "#3a2d63", "#e8f0fb": "#213a6e",
+    "#fbd9a5": "#7a5316", "#dce8f7": "#2a4a82", "#c4d8f0": "#34599a",
+}
+
+
+def _dk(c):
+    from matplotlib.colors import to_hex, to_rgba
+    try:
+        r = to_rgba(c)
+    except ValueError:
+        return c
+    if r[3] == 0:
+        return c
+    return _DARK_MAP.get(to_hex(r[:3]).lower(), c)
+
+
+def _darken(fig):
+    for ax in fig.axes:
+        for t in ax.texts:
+            t.set_color(_dk(t.get_color()))
+            ap = getattr(t, "arrow_patch", None)
+            if ap is not None:
+                ap.set_edgecolor(_dk(ap.get_edgecolor())); ap.set_facecolor(_dk(ap.get_facecolor()))
+        for p in ax.patches:
+            fc = p.get_facecolor()
+            p.set_facecolor(_dk(fc)); p.set_edgecolor(_dk(p.get_edgecolor()))
+        for l in ax.lines:
+            l.set_color(_dk(l.get_color()))
+
+
 def save(fig, fid):
+    kw = dict(bbox_inches="tight", pad_inches=0.04) if fid.startswith("arch_") or fid == "imp" else {}
+    if DARK:
+        if fid.startswith("arch_"):
+            d = ROOT / "presentation" / "img"
+            _darken(fig)
+            fig.savefig(d / f"{fid}.png", dpi=220, transparent=True, **kw)
+        plt.close(fig)
+        return
     OUT.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUT / f"{fid}.pdf")
-    fig.savefig(OUT / f"{fid}.png", dpi=170)
+    fig.savefig(OUT / f"{fid}.pdf", **kw)
+    fig.savefig(OUT / f"{fid}.png", dpi=170, **kw)
     plt.close(fig)
 
 
@@ -92,38 +136,224 @@ def _row(ax, y, items, title, colors=None):
         x += w + 0.2
 
 
-@figure("arch", "Arquitecturas e IMP",
-        "Las cuatro redes con la forma de los tensores y los pesos podables por capa (verde = capas que se podan). Abajo, el ciclo de IMP: entrenar, podar el menor |w|, regresar los sobrevivientes al punto de referencia y volver a entrenar.")
-def fig_arch():
-    fig, ax = plt.subplots(figsize=(12.5, 7.4))
-    ax.set_xlim(-0.2, 15.2)
-    ax.set_ylim(-0.2, 10.4)
-    ax.axis("off")
-    ax.grid(False)
-    P, N, A, V = "#cfe8cf", "#eeeeee", "#fbe3c8", "#e3d8f0"
-    _row(ax, 9.0, [("Imagen\n(784)", 1.0), ("Linear\n784→300\n235k", 1.2), ("ReLU", 0.7), ("Linear\n300→100\n30k", 1.2), ("ReLU", 0.7), ("Linear\n100→10\n1k", 1.1), ("10 clases", 1.0)],
-         "MLP (LeNet-300-100) · MNIST · 266k pesos podables", {1: P, 3: P, 5: P, 2: A, 4: A})
-    _row(ax, 7.2, [("Imagen\n(3,32,32)", 1.1), ("Conv 3→64\n1.7k", 1.0), ("Conv 64→64\n37k", 1.0), ("MaxPool\n(64,16,16)", 0.95), ("Conv 64→128\n74k", 1.05), ("Conv 128→128\n147k", 1.1), ("MaxPool\n(128,8,8)", 0.95), ("Linear\n8192→256\n2.1M", 1.05), ("Linear\n256→256\n66k", 1.0), ("Linear\n256→10", 0.85)],
-         "CNN (Conv-4) · CIFAR-10 · ~2.4M pesos podables (86% en la primera Linear)", {1: P, 2: P, 4: P, 5: P, 7: P, 8: P, 9: P, 3: N, 6: N})
-    _row(ax, 5.4, [("Imagen\n(3,32,32)", 1.1), ("Conv 3→16\n+BN+ReLU", 1.1), ("3 bloques\n16 canales\n(32×32)", 1.25), ("3 bloques\n32 canales\n(16×16)", 1.2), ("3 bloques\n64 canales\n(8×8)", 1.2), ("AvgPool\n+ Linear 64→10\n(sin poda)", 1.1), ("10 clases", 0.9)],
-         "ResNet de 20 capas · CIFAR-10 · ~270k pesos podables (solo convoluciones; la capa final no se poda)", {1: P, 2: P, 3: P, 4: P})
-    ax.text(9.6, 5.75, "Bloque residual: x → Conv3×3 → BN → ReLU → Conv3×3 → BN → (+ x) → ReLU\n(con cambio de canales, atajo Conv 1×1)", fontsize=7.2, va="center", color="#444")
-    _row(ax, 3.6, [("Imagen\n(3,32,32)", 1.1), ("Parches 4×4\nConv 3→192\n(64 tokens)", 1.3), ("+ [CLS]\n+ posición\n(65,192)", 1.1), ("× 6 bloques\n(ver abajo)", 1.3), ("LayerNorm", 0.9), ("[CLS] →\nLinear\n192→10", 1.0), ("10 clases", 0.9)],
-         "ViT pequeño · CIFAR-10 · ~1.8M pesos podables (6 bloques, dim 192, 3 cabezas)", {1: P, 5: P, 3: V})
-    _row(ax, 1.8, [("x", 0.5), ("LayerNorm", 0.9), ("qkv\n192→576", 0.9), ("Atención\n3 cabezas", 1.0), ("proj\n192→192", 0.9), ("+ x", 0.55), ("LayerNorm", 0.9), ("mlp.0\n192→384", 0.95), ("GELU", 0.6), ("mlp.2\n384→192", 0.95), ("+ x", 0.55)],
-         "Un bloque del ViT (se repite 6 veces); las Linear y las LayerNorm entran a la poda global", {2: P, 4: P, 7: P, 9: P, 3: V, 1: N, 6: N})
-    steps = ["1. Entrenar\n(con la máscara)", "2. Podar 20%\nde los pesos vivos\n(menor |w|)", "3. Regresar los\nsobrevivientes a θ₀\no a θ_k (rewind)", "4. Volver a entrenar\ny medir accuracy"]
-    x = 0.2
-    ax.text(0.0, 1.2, "Poda por magnitud iterativa (IMP)", fontsize=9.5, fontweight="bold")
-    for i, t in enumerate(steps):
-        ax.add_patch(FancyBboxPatch((x, 0.1), 2.7, 0.9, boxstyle="round,pad=0.03", fc="#fff2cc", ec="#7f6000", lw=0.8))
-        ax.text(x + 1.35, 0.55, t, ha="center", va="center", fontsize=7.2)
-        if i < 3:
-            ax.annotate("", xy=(x + 3.15, 0.55), xytext=(x + 2.76, 0.55), arrowprops=dict(arrowstyle="->", lw=1))
-        x += 3.2
-    ax.text(13.1, 0.55, "se repite\n8-15 rondas", ha="left", va="center", fontsize=8, fontweight="bold")
-    ax.text(15.1, 10.3, "Verde: se poda · Naranja: activación · Gris: sin poda · Morado: atención", ha="right", fontsize=7, color="#444")
-    save(fig, "arch")
+@figure("imp", "Cómo funciona IMP",
+        "Arriba, la máscara de una capa ilustrativa (12×12 pesos aleatorios) a lo largo de las rondas: en cada una se elimina el 20% de los pesos vivos de menor |w| (blanco = podado; más oscuro = mayor |w|). Abajo, el ciclo: entrenar, podar, regresar los sobrevivientes a un valor de referencia (θ₀ = ticket, θ_k = rewinding, pesos nuevos = control) y repetir. Es un esquema: los pesos son aleatorios, no de una corrida real.")
+def fig_imp():
+    rng = np.random.default_rng(3)
+    w = np.abs(rng.normal(size=(12, 12)))
+    show = [0, 1, 2, 4, 10]
+    fig = plt.figure(figsize=(6.5, 3.0))
+    gs = fig.add_gridspec(2, len(show), height_ratios=[1.35, 1], hspace=0.05, wspace=0.12, left=0.02, right=0.98, top=0.93, bottom=0.02)
+    for j, r in enumerate(show):
+        ax = fig.add_subplot(gs[0, j])
+        frac = 0.8 ** r
+        keep = max(1, int(round(frac * w.size)))
+        thr = np.sort(w.ravel())[::-1][keep - 1]  # equivale a podar 20% de los vivos de menor |w| en cada ronda
+        ax.imshow(np.where(w >= thr, w, np.nan), cmap="Blues", vmin=0, vmax=2.6)
+        ax.set_xticks([]); ax.set_yticks([])
+        for sp in ax.spines.values():
+            sp.set_color("#aaa"); sp.set_linewidth(0.6)
+        ax.set_title(f"ronda {r}: {frac * 100:.0f}%" if frac > 0.2 else f"ronda {r}: {frac * 100:.1f}%", fontsize=7.5, pad=3)
+    ax = fig.add_subplot(gs[1, :])
+    ax.set_xlim(0, 10); ax.set_ylim(0, 3); ax.axis("off")
+    labels = ["1. Entrenar", "2. Podar 20%\nde menor |w|", "3. Regresar a\nθ₀ o θ_k", "4. Repetir con\nla nueva máscara"]
+    xs = [0.1, 2.65, 5.2, 7.75]
+    for x, t in zip(xs, labels):
+        ax.add_patch(FancyBboxPatch((x, 1.15), 2.15, 1.25, boxstyle="round,pad=0.03", fc="#fff2cc", ec="#7f6000", lw=0.8))
+        ax.text(x + 1.075, 1.775, t, ha="center", va="center", fontsize=7.5)
+    for x in xs[:-1]:
+        ax.annotate("", xy=(x + 2.62, 1.775), xytext=(x + 2.2, 1.775), arrowprops=dict(arrowstyle="->", lw=0.9, color="#333"))
+    ax.plot([8.825, 8.825, 1.175], [1.1, 0.55, 0.55], color="#888", lw=0.8, ls="--")
+    ax.annotate("", xy=(1.175, 1.1), xytext=(1.175, 0.55), arrowprops=dict(arrowstyle="->", lw=0.8, color="#888"))
+    ax.text(5.0, 0.2, "hasta llegar al % de pesos deseado", ha="center", va="center", fontsize=7, color="#555")
+    save(fig, "imp")
+    plt.close(fig)
+
+
+# ---------------------------------------------------------------- diagramas por arquitectura
+KIND = {"p": ("#d6efdf", "#2a9d6f"), "n": ("#eeeeee", "#888888"), "a": ("#fde6c8", "#d97f00"), "v": ("#e6dcf5", "#8e5fd0"), "i": ("#e8f0fb", "#1f77b4")}
+LEGEND = "verde: capa con pesos que se podan · gris: sin poda · naranja: activación · morado: atención"
+
+
+def _blk(ax, x, y, w, h, text, kind="p", fs=6.8, bold=False):
+    fc, ec = KIND[kind]
+    ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.01,rounding_size=0.06", fc=fc, ec=ec, lw=0.9))
+    ax.text(x + w / 2, y + h / 2, text, ha="center", va="center", fontsize=fs, fontweight="bold" if bold else "normal", linespacing=1.15)
+
+
+def _arr(ax, x0, y0, x1, y1, color="#444", lw=0.8, rad=0.0, ls="-"):
+    ax.annotate("", xy=(x1, y1), xytext=(x0, y0), arrowprops=dict(arrowstyle="-|>", lw=lw, color=color, mutation_scale=7, connectionstyle=f"arc3,rad={rad}", ls=ls, shrinkA=0, shrinkB=0))
+
+
+def _canvas(w, h, xmax, ymax):
+    fig, ax = plt.subplots(figsize=(w, h))
+    fig.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
+    ax.set_xlim(0, xmax); ax.set_ylim(0, ymax); ax.axis("off")
+    return fig, ax
+
+
+@figure("arch_mlp", "Arquitectura: MLP (LeNet-300-100)",
+        "Cada barra es una capa de neuronas (alto proporcional al logaritmo del tamaño). Entre capas, los pesos que se podan (verde) y cuántos son. Casi todo está en la primera capa: 235k de 266k.")
+def fig_arch_mlp():
+    fig, ax = _canvas(6.5, 1.65, 10, 3.0)
+    xs = [0.6, 3.1, 5.6, 8.1]
+    sizes = [784, 300, 100, 10]
+    names = ["Entrada\n784 = 28×28", "Oculta 1\n300 + ReLU", "Oculta 2\n100 + ReLU", "Salida\n10 clases"]
+    hs = [0.55 * np.log10(n) + 0.15 for n in sizes]
+    kinds = ["i", "a", "a", "i"]
+    for x, h, n, k in zip(xs, hs, names, kinds):
+        fc, ec = KIND[k]
+        ax.add_patch(FancyBboxPatch((x, 1.55 - h / 2), 0.9, h, boxstyle="round,pad=0.01,rounding_size=0.08", fc=fc, ec=ec, lw=1))
+        ax.text(x + 0.45, 0.45, n, ha="center", va="center", fontsize=7, linespacing=1.2)
+    rng = np.random.default_rng(0)
+    labels = ["Linear 784→300\n235,200 pesos", "Linear 300→100\n30,000 pesos", "Linear 100→10\n1,000 pesos"]
+    for i in range(3):
+        x0, x1 = xs[i] + 0.9, xs[i + 1]
+        for _ in range(26):
+            y0 = 1.55 + rng.uniform(-hs[i] / 2, hs[i] / 2) * 0.9
+            y1 = 1.55 + rng.uniform(-hs[i + 1] / 2, hs[i + 1] / 2) * 0.9
+            ax.plot([x0, x1], [y0, y1], color="#2a9d6f", lw=0.4, alpha=0.5)
+        ax.text((x0 + x1) / 2, 2.85, labels[i], ha="center", va="center", fontsize=7, color="#1d7a54", fontweight="bold", linespacing=1.2)
+    save(fig, "arch_mlp"); plt.close(fig)
+
+
+@figure("arch_cnn", "Arquitectura: CNN (Conv-4)",
+        "Cada pila es un tensor: más profundas = más canales, más altas = mayor resolución. Los números verdes son los pesos de cada capa; la primera capa lineal (2.1M) concentra el 86% del total.")
+def fig_arch_cnn():
+    fig, ax = _canvas(6.5, 2.85, 13, 4.55)
+    base = 1.35
+    def stack(x, spatial_h, depth_n, label, sub=None, color="i"):
+        fc, ec = KIND[color]
+        for k in range(depth_n):
+            ax.add_patch(FancyBboxPatch((x + 0.09 * k, base + 0.09 * k), 0.38, spatial_h, boxstyle="round,pad=0,rounding_size=0.03", fc=fc, ec=ec, lw=0.8))
+        ax.text(x + 0.2 + 0.045 * depth_n, base - 0.22, label, ha="center", va="top", fontsize=6.9, linespacing=1.15)
+    def bar(x, hgt, label, color="a"):
+        fc, ec = KIND[color]
+        ax.add_patch(FancyBboxPatch((x, base), 0.38, hgt, boxstyle="round,pad=0,rounding_size=0.04", fc=fc, ec=ec, lw=0.8))
+        ax.text(x + 0.19, base - 0.22, label, ha="center", va="top", fontsize=6.9, linespacing=1.15)
+    H32, H16, H8 = 1.5, 0.95, 0.6
+    pos = [0.3, 1.6, 2.9, 4.2, 5.5, 6.8, 8.1]
+    stack(pos[0], H32, 1, "imagen\n3×32×32")
+    stack(pos[1], H32, 3, "64×32×32")
+    stack(pos[2], H32, 3, "64×32×32")
+    stack(pos[3], H16, 3, "64×16×16\n(pool)")
+    stack(pos[4], H16, 4, "128×16×16")
+    stack(pos[5], H16, 4, "128×16×16")
+    stack(pos[6], H8, 4, "128×8×8\n(pool)")
+    fcx = [9.55, 10.6, 11.65, 12.45]
+    bar(fcx[0], 1.6, "8192\n(aplanar)", "n")
+    bar(fcx[1], 0.8, "256\n+ReLU", "a")
+    bar(fcx[2], 0.8, "256\n+ReLU", "a")
+    bar(fcx[3] + 0.0, 0.2, "10", "i")
+    # etiquetas de operaciones con pesos
+    ops = [(pos[0] + 0.55, pos[1] - 0.05, "conv1", "1.7k"), (pos[1] + 0.55, pos[2] - 0.05, "conv2", "37k"), (pos[3] + 0.55, pos[4] - 0.05, "conv3", "74k"), (pos[4] + 0.55, pos[5] - 0.05, "conv4", "147k")]
+    for x0, x1, nm, p in ops:
+        _arr(ax, x0 + 0.02, base + 0.75, x1, base + 0.75, color="#2a9d6f", lw=1.1)
+        ax.text((x0 + x1) / 2 + 0.05, base + 2.0, f"{nm}\n3×3", ha="center", fontsize=7.0, va="bottom", linespacing=1.1)
+        ax.text((x0 + x1) / 2 + 0.05, base + 1.98, p, ha="center", fontsize=7.0, va="top", color="#1d7a54", fontweight="bold")
+    for xa, xb in [(pos[2] + 0.5, pos[3] - 0.05), (pos[5] + 0.55, pos[6] - 0.05)]:
+        _arr(ax, xa, base + 0.65, xb, base + 0.65, color="#888")
+        ax.text((xa + xb) / 2, base + 0.78, "pool", ha="center", fontsize=6.6, color="#666")
+    _arr(ax, pos[6] + 0.55, base + 0.3, fcx[0] - 0.05, base + 0.3, color="#888")
+    for i, (nm, p) in enumerate([("fc1", "2.1M"), ("fc2", "66k"), ("fc3", "2.6k")]):
+        xa, xb = fcx[i] + 0.4, fcx[i + 1] - 0.02
+        _arr(ax, xa, base + 0.45, xb, base + 0.45, color="#2a9d6f", lw=1.1)
+        ax.text((xa + xb) / 2 + 0.02, base + 1.85, nm, ha="center", fontsize=7.0, va="bottom")
+        ax.text((xa + xb) / 2 + 0.02, base + 1.83, p, ha="center", fontsize=7.0, va="top", color="#1d7a54", fontweight="bold")
+    ax.text(0.3, 4.3, "Conv-4: 4 convoluciones + 3 capas lineales, ~2.4M pesos podables", fontsize=8, fontweight="bold", va="center")
+    ax.text(0.3, 0.2, LEGEND.split(" · ")[0] + ". Los números sobre cada flecha son los pesos de esa capa.", fontsize=6.9, color="#555", va="center")
+    save(fig, "arch_cnn"); plt.close(fig)
+
+
+@figure("arch_resnet", "Arquitectura: ResNet de 20 capas",
+        "Arriba, la red completa: una convolución inicial, tres etapas de tres bloques residuales (los arcos son los atajos) y una capa final que no se poda. Abajo, el interior de un bloque.")
+def fig_arch_resnet():
+    fig, ax = _canvas(6.5, 2.7, 13, 5.5)
+    ax.text(0.1, 5.3, "ResNet-20: 1 conv + 9 bloques residuales (2 conv cada uno) + 1 lineal, ~270k pesos podables", fontsize=8, fontweight="bold", va="center")
+    y, h = 3.6, 0.85
+    _blk(ax, 0.1, y, 0.95, h, "imagen\n3×32×32", "i")
+    _blk(ax, 1.3, y, 1.1, h, "conv 3×3\n3→16\n+BN+ReLU", "p")
+    _arr(ax, 1.07, y + h / 2, 1.28, y + h / 2)
+    x = 2.8
+    stages = [("16 canales · 32×32", 16), ("32 canales · 16×16 (÷2)", 32), ("64 canales · 8×8 (÷2)", 64)]
+    prev = 2.42
+    for si, (lab, c) in enumerate(stages):
+        ax.add_patch(FancyBboxPatch((x - 0.1, y - 0.25), 2.9, h + 0.95, boxstyle="round,pad=0.02,rounding_size=0.1", fc="none", ec="#bbb", lw=0.8, ls="--"))
+        ax.text(x + 1.35, y + h + 0.45, lab, ha="center", fontsize=6.6, color="#555")
+        _arr(ax, prev, y + h / 2, x - 0.02, y + h / 2)
+        for b in range(3):
+            bx = x + b * 0.98
+            _blk(ax, bx, y, 0.8, h, "bloque", "p", fs=6.3)
+            if b < 2:
+                _arr(ax, bx + 0.8, y + h / 2, bx + 0.97, y + h / 2)
+            _arr(ax, bx + 0.1, y + h + 0.02, bx + 0.7, y + h + 0.02, color="#d97f00", rad=-0.8, lw=0.7)
+        prev = x + 2 * 0.98 + 0.8
+        x += 3.05
+    _blk(ax, 11.7, y, 1.25, h, "AvgPool +\nLinear\n64→10", "n", fs=6.3)
+    _arr(ax, prev, y + h / 2, 11.68, y + h / 2)
+    # interior de un bloque
+    ax.text(0.1, 2.45, "Dentro de un bloque residual", fontsize=7.5, fontweight="bold", va="center")
+    yy, hh = 1.3, 0.8
+    parts = [("x", "i", 0.45), ("conv 3×3", "p", 1.15), ("BN", "n", 0.65), ("ReLU", "a", 0.8), ("conv 3×3", "p", 1.15), ("BN", "n", 0.65), ("+", "i", 0.5), ("ReLU", "a", 0.8)]
+    xx = 0.8
+    xs = []
+    for t, k, w in parts:
+        _blk(ax, xx, yy, w, hh, t, k, fs=6.8)
+        xs.append((xx, w))
+        xx += w + 0.45
+    for (x0, w0), (x1, _) in zip(xs[:-1], xs[1:]):
+        _arr(ax, x0 + w0, yy + hh / 2, x1, yy + hh / 2)
+    _arr(ax, xs[0][0] + xs[0][1] / 2, yy, xs[6][0] + xs[6][1] / 2, yy, color="#d97f00", rad=0.17, lw=1.0)
+    ax.text((xs[0][0] + xs[6][0]) / 2 + 1.0, 0.18, "atajo: se suma la entrada (con conv 1×1 si cambian las dimensiones)", ha="center", fontsize=6.3, color="#d97f00")
+    ax.text(12.9, 1.4, "verde: se poda\ngris: sin poda\nnaranja: activación/atajo", ha="right", va="center", fontsize=6.3, color="#555", linespacing=1.4)
+    save(fig, "arch_resnet"); plt.close(fig)
+
+
+@figure("arch_vit", "Arquitectura: ViT pequeño",
+        "Arriba, de la imagen a la predicción: la imagen se corta en 64 parches de 4×4, cada uno es un token; se añade un token [CLS] que al final se clasifica. Abajo, el interior de uno de los 6 bloques. Todas las capas lineales y las LayerNorm entran a la poda global.")
+def fig_arch_vit():
+    fig, ax = _canvas(6.5, 3.6, 13, 7.0)
+    ax.text(0.1, 6.7, "ViT pequeño: 6 bloques, dimensión 192, 3 cabezas, ~1.8M pesos podables", fontsize=8, fontweight="bold", va="center")
+    y0 = 4.05
+    # imagen y parches
+    for i in range(4):
+        for j in range(4):
+            ax.add_patch(plt.Rectangle((0.2 + i * 0.3, y0 + 0.2 + j * 0.3), 0.3, 0.3, fc="#dce8f7" if (i + j) % 2 else "#c4d8f0", ec="#1f77b4", lw=0.5))
+    ax.text(0.8, y0 - 0.15, "imagen 32×32\n→ 64 parches 4×4", ha="center", va="top", fontsize=6.2, linespacing=1.15)
+    _arr(ax, 1.55, y0 + 0.8, 2.2, y0 + 0.8)
+    _blk(ax, 2.25, y0 + 0.4, 1.35, 0.8, "Conv 4×4\n(3→192)\n= embedding", "p", fs=6.3)
+    _arr(ax, 3.62, y0 + 0.8, 4.2, y0 + 0.8)
+    # tokens
+    for k in range(9):
+        ax.add_patch(plt.Rectangle((4.25 + k * 0.17, y0 + 0.3), 0.14, 1.0, fc="#fbd9a5" if k == 0 else "#e6dcf5", ec="#8e5fd0" if k else "#d97f00", lw=0.5))
+    ax.text(4.25 + 0.07, y0 + 1.45, "[CLS]", ha="center", fontsize=5.8, color="#d97f00")
+    ax.text(5.1, y0 - 0.15, "65 tokens × 192\n(+ posición)", ha="center", va="top", fontsize=6.2, linespacing=1.15)
+    _arr(ax, 5.95, y0 + 0.8, 6.5, y0 + 0.8)
+    # pila de bloques
+    for k in range(3, -1, -1):
+        _blk(ax, 6.55 + 0.1 * k, y0 + 0.3 + 0.1 * k, 1.5, 1.0, "" if k else "× 6 bloques\nde atención", "v", fs=6.6)
+    _arr(ax, 8.3, y0 + 0.8, 8.85, y0 + 0.8)
+    _blk(ax, 8.9, y0 + 0.4, 1.0, 0.8, "LayerNorm", "n", fs=6.4)
+    _arr(ax, 9.92, y0 + 0.8, 10.35, y0 + 0.8)
+    _blk(ax, 10.4, y0 + 0.4, 1.1, 0.8, "solo [CLS]", "i", fs=6.4)
+    _arr(ax, 11.52, y0 + 0.8, 11.95, y0 + 0.8)
+    _blk(ax, 12.0, y0 + 0.4, 0.95, 0.8, "Linear\n192→10", "p", fs=6.3)
+    # interior del bloque
+    ax.text(0.1, 3.0, "Dentro de un bloque (se repite 6 veces)", fontsize=7.5, fontweight="bold", va="center")
+    yy, hh = 1.35, 0.8
+    parts = [("x", "i", 0.4), ("Layer\nNorm", "n", 0.75), ("qkv\n192→576", "p", 0.9), ("Atención\n3 cabezas", "v", 0.95), ("proj\n192→192", "p", 0.9), ("+", "i", 0.4),
+             ("Layer\nNorm", "n", 0.75), ("mlp.0\n192→384", "p", 0.9), ("GELU", "a", 0.6), ("mlp.2\n384→192", "p", 0.9), ("+", "i", 0.4)]
+    xx, xs = 0.25, []
+    for t, k, w in parts:
+        _blk(ax, xx, yy, w, hh, t, k, fs=6.6)
+        xs.append((xx, w)); xx += w + 0.2
+    for (a0, aw), (b0, _) in zip(xs[:-1], xs[1:]):
+        _arr(ax, a0 + aw, yy + hh / 2, b0, yy + hh / 2)
+    _arr(ax, xs[0][0] + 0.2, yy + hh, xs[5][0] + 0.2, yy + hh, color="#d97f00", rad=-0.2, lw=0.9)
+    _arr(ax, xs[5][0] + 0.2, yy, xs[10][0] + 0.2, yy, color="#d97f00", rad=0.2, lw=0.9)
+    ax.text(0.25, 0.45, "arcos naranja: conexiones residuales (se suma la entrada)", fontsize=6.7, color="#d97f00", va="center")
+    ax.text(12.9, 0.45, LEGEND.split(" · ")[0] + " · morado: atención", ha="right", fontsize=6.7, color="#555", va="center")
+    save(fig, "arch_vit"); plt.close(fig)
 
 
 # ---------------------------------------------------------------- curvas
@@ -460,6 +690,12 @@ def fig_entropy():
     save(fig, "entropy")
 
 
+def _plain(ax, xt, yt):
+    """Ejes logarítmicos con números normales en vez de potencias de 10."""
+    ax.set_xticks(xt); ax.set_xticklabels([f"{v:g}" for v in xt]); ax.minorticks_off()
+    ax.set_yticks(yt); ax.set_yticklabels([f"{v:g}%" for v in yt])
+
+
 @figure("magnitudes", "Tamaño de los pesos por capa y qué sobrevive a la poda global",
         "Panel izquierdo: mediana de |w| por capa en la CNN densa entrenada (eje log; el tamaño de la capa está sobre cada barra). Panel central: mediana de |w| contra el porcentaje de pesos vivos de esa capa en el ticket global de la CNN (10.7% del total): las capas con pesos grandes (pocas entradas por neurona) sobreviven más. Panel derecho: lo mismo para el ViT largo (11.6% del total); la relación también es positiva (head y patch_embed tienen los pesos más grandes y sobreviven más), pero es menos limpia porque las magnitudes cambian durante las rondas de IMP y aquí se usan las del modelo denso.")
 def fig_magnitudes():
@@ -469,7 +705,7 @@ def fig_magnitudes():
     med = {k: float(base["dense"][k + ".weight"].abs().median()) for k in CNN_LAYERS}
     size = {k: base["dense"][k + ".weight"].numel() for k in CNN_LAYERS}
     keep = {k: ck["masks"][k + ".weight"].float().mean().item() * 100 for k in CNN_LAYERS}
-    fig, axes = plt.subplots(1, 3, figsize=(12, 3.4))
+    fig, axes = plt.subplots(1, 3, figsize=(10, 3.2))
     ax = axes[0]
     ax.bar(range(7), [med[k] for k in CNN_LAYERS], color="#1f77b4")
     for i, k in enumerate(CNN_LAYERS):
@@ -479,7 +715,7 @@ def fig_magnitudes():
     ax.set_xticks(range(7))
     ax.set_xticklabels(CNN_NICE, rotation=45, ha="right", fontsize=7)
     ax.set_ylabel("Mediana de |w| (red densa)")
-    ax.set_title("CNN: tamaño de los pesos", fontsize=9)
+    ax.set_title("CNN: tamaño de los pesos por capa\n(sobre cada barra, el número de pesos)", fontsize=8.5)
     ax = axes[1]
     for k, nm in zip(CNN_LAYERS, CNN_NICE):
         ax.scatter(med[k], keep[k], s=30, color="#ff7f0e")
@@ -488,7 +724,8 @@ def fig_magnitudes():
     ax.set_yscale("log")
     ax.set_xlabel("Mediana de |w| (red densa)")
     ax.set_ylabel("% vivo de la capa (ticket global, 10.7%)")
-    ax.set_title("CNN: pesos más grandes, sobreviven más", fontsize=9)
+    ax.set_title("CNN: tamaño de los pesos vs. % que sobrevive", fontsize=8.5)
+    _plain(ax, [0.01, 0.02, 0.05, 0.1], [5, 10, 20, 50, 100])
     c = vit_ctx()
     vb = c["base"]["dense"]
     vmask = c["load"](c["at"]("ticket")[3])["masks"]
@@ -508,7 +745,8 @@ def fig_magnitudes():
     ax.set_yscale("log")
     ax.set_xlabel("Mediana de |w| (ViT denso)")
     ax.set_ylabel("% vivo (ticket, 11.6%)")
-    ax.set_title("ViT largo", fontsize=9)
+    ax.set_title("ViT largo: tamaño de los pesos vs. % que sobrevive", fontsize=8.5)
+    _plain(ax, [0.04, 0.05, 0.06], [8, 10, 20, 40])
     fig.tight_layout()
     save(fig, "magnitudes")
 
@@ -601,6 +839,19 @@ def make_tables():
             cells += [f"{r['keep'] * 100:.1f}", f"{r['n']:,}".replace(",", "\\,"), f"{r['dead']}/{r['of']}" if "dead" in r else "--"]
         lines.append(f"{nm.replace(chr(8594), '$\\to$')} & " + " & ".join(cells) + " \\\\")
     (OUT / "table_cnnmasks.tex").write_text("\\begin{tabular}{@{}lrrrrrr@{}}\\toprule\n & \\multicolumn{3}{c}{Por capa (02)} & \\multicolumn{3}{c}{Global (02b)} \\\\\\cmidrule(lr){2-4}\\cmidrule(lr){5-7}\nCapa & \\% vivo & Pesos & Vac\\'ios & \\% vivo & Pesos & Vac\\'ios \\\\\\midrule\n" + "\n".join(lines) + "\n\\bottomrule\\end{tabular}\n")
+    # similitud entre los mapas de distintos modelos (presentation/map_similarity.py)
+    sim = ROOT / "results" / "map_similarity.json"
+    if sim.exists():
+        d = json.loads(sim.read_text())["pares"]
+        nm = {"denso": "denso", "ticket": "ticket", "rewinding": "rewinding", "aleatorio": "control aleatorio"}
+        order = ["denso vs ticket", "denso vs rewinding", "ticket vs rewinding", "denso vs aleatorio", "ticket vs aleatorio", "rewinding vs aleatorio"]
+        rows = []
+        for k in order:
+            a, b = k.split(" vs ")
+            rows.append(f"{nm[a]} -- {nm[b]} & {d[k]['att']['todas']:.2f} & {d[k]['occ']['todas']:.2f} \\\\")
+            if k == "ticket vs rewinding":
+                rows.append("\\midrule")
+        (OUT / "table_mapsim.tex").write_text("\\begin{tabular}{@{}lrr@{}}\\toprule\nPar de modelos & Atenci\\'on & Oclusi\\'on \\\\\\midrule\n" + "\n".join(rows) + "\n\\bottomrule\\end{tabular}\n")
     print("tablas escritas")
 
 
@@ -621,7 +872,10 @@ def make_index(done):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", nargs="*", help="ids de figuras (por defecto todas)")
+    ap.add_argument("--dark", action="store_true", help="solo los diagramas de arquitectura, en tema oscuro, a presentation/img/")
     args = ap.parse_args()
+    if args.dark and not args.only:
+        args.only = ["arch_mlp", "arch_cnn", "arch_resnet", "arch_vit"]
     done = []
     for fn in REGISTRY:
         fid, title, reading = fn.meta

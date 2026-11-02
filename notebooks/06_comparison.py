@@ -10,7 +10,7 @@ def _(mo):
     # Proyecto Final: Lottery Ticket Hypothesis a través de Arquitecturas
     Este Notebook es parte del Proyecto Final del curso de Deep Learning.
 
-    ## 05 - Comparación entre arquitecturas
+    ## 06 - Comparación entre arquitecturas
     Reúne los resultados guardados por los notebooks 01-05 (`results/*.json`) para responder las dos preguntas del proyecto:
 
     1. **¿Existen winning tickets en todas las arquitecturas?** Es decir, ¿el ticket supera consistentemente a la reinicialización aleatoria con la misma estructura?

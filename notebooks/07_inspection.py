@@ -8,23 +8,23 @@ app = marimo.App()
 def _(mo):
     mo.md(r"""
     # Proyecto Final
-    Este Notebook es parte del Proyecto Final del curso de Deep Learning, este proyecto trata sobre un fenómeno conocido como el "Lottery Ticket Hypothesis" (LTH).
+        Este Notebook es parte del Proyecto Final del curso de Deep Learning, este proyecto trata sobre un fenómeno conocido como el "Lottery Ticket Hypothesis" (LTH).
 
-    ## 06 - Resultados e inspección de los tickets
-Este notebook reúne la parte **objetiva** del proyecto, sin discusión: primero los resultados de todas las corridas (curvas, resumen, arquitecturas, comparación de máscaras de la CNN) y luego la inspección de los checkpoints. La interpretación está en `report/informe.tex`.
+        ## 07 - Resultados e inspección de los tickets
+    Este notebook reúne la parte **objetiva** del proyecto, sin discusión: primero los resultados de todas las corridas (curvas, resumen, arquitecturas, comparación de máscaras de la CNN) y luego la inspección de los checkpoints. La interpretación está en `report/informe.tex`.
 
-    Los notebooks 01-05 guardan en `checkpoints/<corrida>/` los pesos y las máscaras de cada ronda de IMP (`lth.save_round`) y los pesos denso / inicial / de rewind (`base.pt`). Aquí se abren esos archivos para mirar **qué** encontró la poda, no solo cuánta accuracy queda:
+        Los notebooks 01-05 guardan en `checkpoints/<corrida>/` los pesos y las máscaras de cada ronda de IMP (`lth.save_round`) y los pesos denso / inicial / de rewind (`base.pt`). Aquí se abren esos archivos para mirar **qué** encontró la poda, no solo cuánta accuracy queda:
 
-    1. **Pesos que sobreviven por capa** (y por cabeza de atención en el ViT).
-    2. **Accuracy por clase**, denso vs ticket vs rewinding vs random.
-    3. **Mapas de atención** y su entropía.
-    4. **Gradientes** por capa, al inicio del entrenamiento y al final.
+        1. **Pesos que sobreviven por capa** (y por cabeza de atención en el ViT).
+        2. **Accuracy por clase**, denso vs ticket vs rewinding vs random.
+        3. **Mapas de atención** y su entropía.
+        4. **Gradientes** por capa, al inicio del entrenamiento y al final.
 
-    Las secciones 2-4 usan el ViT de 04/05 (la clase está definida aquí abajo). La sección 1 solo usa máscaras, así que funciona con cualquier carpeta de checkpoints.
+        Las secciones 2-4 usan el ViT de 04/05 (la clase está definida aquí abajo). La sección 1 solo usa máscaras, así que funciona con cualquier carpeta de checkpoints.
 
-    Las curvas se comparan siempre al mismo porcentaje de pesos (`TARGET_PCT`). Todo es de una sola corrida, así que diferencias pequeñas no se deben interpretar.
+        Las curvas se comparan siempre al mismo porcentaje de pesos (`TARGET_PCT`). Todo es de una sola corrida, así que diferencias pequeñas no se deben interpretar.
 
-    ## Imports - Setup
+        ## Imports - Setup
     """)
     return
 
@@ -52,7 +52,23 @@ def _():
     # Set GPU - CPU as device
     device = os.environ.get("INSPECT_DEVICE") or (torch.accelerator.current_accelerator().type if torch.accelerator.is_available() else "cpu")
     print(f"Using {device} device, inspecting {RUN_DIR}")
-    return F, RUN_DIR, TARGET_PCT, DataLoader, datasets, device, json, lth, mo, nn, np, os, plt, torch, v2
+    return (
+        DataLoader,
+        F,
+        RUN_DIR,
+        TARGET_PCT,
+        datasets,
+        device,
+        json,
+        lth,
+        mo,
+        nn,
+        np,
+        os,
+        plt,
+        torch,
+        v2,
+    )
 
 
 @app.cell(hide_code=True)
@@ -422,6 +438,7 @@ def _(RUN_DIR, TARGET_PCT, lth, os, torch):
         if path not in _cache:
             _cache[path] = torch.load(path, map_location="cpu")
         return _cache[path]
+
     return at_target, base, ckpt, curves
 
 
@@ -453,7 +470,7 @@ def _(ckpt, curves, np, plt):
     _fig.colorbar(_im, label="Fracción viva de la capa")
     _fig.tight_layout()
     _fig
-    return (keep,)
+    return
 
 
 @app.cell(hide_code=True)
@@ -466,7 +483,7 @@ def _(mo):
 
 
 @app.cell
-def _(at_target, ckpt, curves, np, plt):
+def _(at_target, ckpt, np, plt):
     _r, _pct, _, _path = at_target("ticket")
     _m = ckpt(_path)["masks"]
     _qkv = [n for n in _m if n.endswith("qkv.weight")]
@@ -677,6 +694,7 @@ def _(F, nn, torch):
                 out.append(attn)
                 x = blk(x)
             return out
+
     return (ViT,)
 
 
@@ -716,6 +734,7 @@ def _(ViT, device, test_loader, torch):
                 _p.append(model(_x.to(device)).argmax(dim=1).cpu())
                 _y.append(_t)
         return torch.cat(_p), torch.cat(_y)
+
     return load_vit, predict
 
 
@@ -731,7 +750,7 @@ def _(mo):
 
 
 @app.cell
-def _(RUN_DIR, base, ckpt, curves, json, load_vit, os, predict, torch):
+def _(RUN_DIR, base, ckpt, curves, json, load_vit, os, predict):
     # evals[(tag, ronda)] = {pct, acc, per_class}
     evals, preds = {}, {}
 
@@ -815,7 +834,19 @@ def _(mo):
 
 
 @app.cell
-def _(at_target, base, ckpt, curves, device, fixed_x, load_vit, mean, plt, std, torch):
+def _(
+    at_target,
+    base,
+    ckpt,
+    curves,
+    device,
+    fixed_x,
+    load_vit,
+    mean,
+    plt,
+    std,
+    torch,
+):
     _rows = [("denso", load_vit(base["dense"]))]
     for _tag in ("ticket", "late", "random"):
         if _tag in curves:
@@ -888,7 +919,20 @@ def _(mo):
 
 
 @app.cell
-def _(at_target, base, ckpt, curves, device, load_vit, nn, np, plt, sample_x, sample_y, torch):
+def _(
+    at_target,
+    base,
+    ckpt,
+    curves,
+    device,
+    load_vit,
+    nn,
+    np,
+    plt,
+    sample_x,
+    sample_y,
+    torch,
+):
     import re
 
     # "blocks.3.mlp.0.weight" -> "mlp.0"
