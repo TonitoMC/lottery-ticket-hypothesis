@@ -31,11 +31,11 @@ p, li { font-size: clamp(13px, 1.5vw, 22px); line-height: 1.42; margin: 0; }
 .tab.on { color: var(--text); border-color: var(--rewind); background: var(--card); }
 .tabhint { margin-left: auto; font-size: clamp(10px, 0.95vw, 14px); color: var(--muted); }
 .panels { flex: 1; min-height: 0; position: relative; }
-.panel { display: none; grid-template-columns: 2.35fr 1fr; gap: 1.2vw; height: 100%; align-items: center; }
+.panel { display: none; grid-template-columns: 2.35fr 1fr; gap: 1.2vw; height: 100%; align-items: stretch; }
 .panel.on { display: grid; }
 .pimg { display: flex; align-items: center; justify-content: center; min-height: 0; height: 100%; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 1vh 0.4vw; box-sizing: border-box; }
 .pimg img { max-width: 100%; max-height: 100%; object-fit: contain; }
-.pinfo { height: auto; align-self: center; }
+.pinfo { height: auto; align-self: stretch; justify-content: flex-start; }
 table.kv { border-collapse: collapse; font-size: clamp(11px, 1.05vw, 16px); }
 table.kv td { padding: 0.5vh 0.6vw 0.5vh 0; border-bottom: 1px solid var(--line); vertical-align: top; }
 table.kv .gg, .kv b.gg { color: var(--rewind); }
@@ -50,6 +50,32 @@ table.kv td:first-child { color: var(--muted); white-space: nowrap; }
 .tl-pt { position: absolute; top: 34%; transform: translate(-50%, -50%); width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--bg2); }
 .tl-lab { position: absolute; top: 48%; font-size: clamp(11px, 1.2vw, 17px); line-height: 1.35; }
 .tl-cap { position: absolute; top: 2%; font-size: clamp(10px, 1vw, 14px); color: var(--muted); }
+/* PDF vectorial: chromium --print-to-pdf sobre slides.html?print (una diapositiva por página) */
+@page { size: 1920px 1080px; margin: 0; }
+* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+html.print, html.print body { overflow: visible; height: auto; }
+body.print .slide { display: flex !important; position: relative; inset: auto; width: 100vw; height: 100vh; break-after: page; page-break-after: always; overflow: hidden; }
+body.print .nav { display: none; }
+/* modo PDF (slides.html?print): se muestran todas las pestañas a la vez */
+body.print .tabs { display: none; }
+body.print .panels { display: grid; gap: 1vw; grid-template-columns: 1fr 1fr; align-content: stretch; }
+body.print #s4 .panel { grid-template-rows: minmax(0, 1fr) 24vh; }
+body.print .panel { display: grid !important; grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; height: auto; min-height: 0; gap: 0.8vh; align-items: stretch; }
+body.print .panel .pinfo { align-self: stretch; padding: 0.8vh 1vw; gap: 0.4vh; }
+body.print .panel .pinfo h3 { font-size: clamp(13px, 1.3vw, 20px); }
+body.print .panel .pinfo .tiny, body.print .panel table.kv { font-size: clamp(10px, 0.95vw, 15px); }
+body.print .pimg { padding: 0.5vh 0.4vw; }
+.pinfo .sec { margin: 1.1vh 0 0.2vh; font-size: clamp(11px, 1.05vw, 16px); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ticket); }
+.pinfo .sec.sig { color: var(--rewind); }
+.pinfo ul.pts { margin: 0; padding-left: 1.2em; font-size: clamp(11px, 1.1vw, 16px); line-height: 1.45; color: var(--muted); }
+.pinfo ul.pts li { margin: 0.35vh 0; font-size: inherit; line-height: inherit; }
+.pinfo ul.pts b { color: var(--ink); }
+.split { display: grid; gap: 1.2vw; min-height: 0; flex: none; align-items: stretch; }
+.split .pinfo { padding: 0.9vh 0.9vw; gap: 0; overflow: hidden; }
+.split .pinfo h3 { font-size: clamp(14px, 1.35vw, 20px); margin-bottom: 0.2vh; }
+.split .pinfo .sec { margin-top: 0.7vh; font-size: clamp(10px, 0.85vw, 13px); }
+.split ul.pts { font-size: clamp(11px, 0.95vw, 15px); line-height: 1.38; }
+.split ul.pts li { margin: 0.2vh 0; }
 .chip { display: inline-block; font-size: clamp(11px, 1.1vw, 16px); padding: 0.4vh 0.85vw; border-radius: 99px; border: 1px solid var(--line); background: var(--bg2); margin: 0.3vh 0.3vw 0.3vh 0; }
 .chip.me { border-color: var(--human); color: var(--human); } .chip.ai { border-color: var(--ai); color: var(--ai); }
 .chip.todo { border-style: dashed; border-color: var(--warn); color: var(--warn); }
@@ -93,7 +119,7 @@ table.kv td:first-child { color: var(--muted); white-space: nowrap; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line); display: inline-block; margin: 0 3px; } .dot.on { background: var(--accent); }
 code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; font-size: 0.9em; }
 #net-dense, #net-sparse { height: 22vh; } #net-dense svg, #net-sparse svg { width: 100%; height: 100%; }
-@media (max-width: 760px) { .row.two, .row.three, .row.four, .read { grid-template-columns: 1fr; } .slide { overflow: auto; } .flow { flex-direction: column; } }
+@media screen and (max-width: 760px) { .row.two, .row.three, .row.four, .read { grid-template-columns: 1fr; } .slide { overflow: auto; } .flow { flex-direction: column; } }
 </style>
 </head>
 <body>
@@ -158,7 +184,7 @@ code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; font-size: 
       <div class="card"><div class="big" style="color:var(--ai)">H3</div><h3>Alcance de la poda</h3><p class="tiny"><b>a)</b> En la CNN, global &gt; por capa porque no vacía las capas pequeñas.<br><b>b)</b> Las redes grandes necesitan poda global.</p><span class="chip me">a) directa</span> <span class="chip todo">b) no probada</span></div>
     </div>
     <div class="row two">
-      <div class="card" style="border-left:4px solid var(--ticket)"><p><b>Objetivo adicional.</b> Mirar dentro de la red, no solo la accuracy: qué capas y qué pesos sobreviven (máscaras) y si la atención explica algo, en la CNN y en el ViT.</p></div>
+      <div class="card" style="border-left:4px solid var(--ticket)"><p><b>Objetivo adicional.</b> Ver cómo funcionan los tickets en las arquitecturas más grandes, mirando dentro de la red y no solo la accuracy: qué capas y qué pesos sobreviven (máscaras) y si la atención explica algo, en la CNN y en el ViT.</p></div>
       <div class="card" style="border-left:4px solid var(--rewind)"><p><b>Enfoque.</b> El <span class="g">ViT</span> es donde más profundizamos (dos corridas e inspección completa); la <span class="hl">CNN</span>, donde se comparó poda por capa y global. El MLP y la ResNet son puntos de referencia.</p></div>
     </div>
   </div>
@@ -173,7 +199,7 @@ code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; font-size: 
       <span class="tabhint">clic para cambiar de red</span>
     </div>
     <div class="panels">
-      <div class="panel on" id="p-cnn">
+      <div class="panel on" id="s4-cnn">
         <div class="pimg"><img src="img/arch_cnn.png" alt="Arquitectura de la CNN"></div>
         <div class="card pinfo">
           <h3>CNN · CIFAR-10 · 2.4M pesos</h3>
@@ -181,7 +207,7 @@ code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; font-size: 
           <p class="tiny">86% de los pesos están en la primera capa lineal; la primera convolución tiene solo 1,728.</p>
         </div>
       </div>
-      <div class="panel" id="p-vit">
+      <div class="panel" id="s4-vit">
         <div class="pimg"><img src="img/arch_vit.png" alt="Arquitectura del ViT"></div>
         <div class="card pinfo">
           <h3>ViT · CIFAR-10 · 1.8M pesos</h3>
@@ -191,46 +217,6 @@ code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; font-size: 
       </div>
     </div>
     <p class="tiny">Un mismo código de poda (<code>lth.py</code>) para las cuatro redes; el MLP (LeNet-300-100) y la ResNet-20 son puntos de referencia y sus diagramas están en el informe. Una semilla por experimento; 02b repite 02 cambiando <b>solo</b> el alcance de la poda.</p>
-  </div>
-</section>
-
-<section class="slide" id="s5">
-  <div class="kicker">5 · Herramientas y uso de IA</div>
-  <h2>Los modelos y <code>lth.py</code> son míos; la IA hizo checkpoints, gran parte de los experimentos y las figuras</h2>
-  <div class="body">
-    <div class="row three">
-      <div class="card" style="border-top:4px solid var(--human)">
-        <h3 class="g">Mi parte</h3>
-        <ul style="display:flex;flex-direction:column;gap:0.5vh;padding-left:1.2em;margin:0">
-          <li class="tiny">Tema, pregunta e hipótesis</li>
-          <li class="tiny">Los 4 modelos (<code>nn.Module</code>) y los loops de entrenamiento / evaluación</li>
-          <li class="tiny"><code>lth.py</code>: máscaras, IMP, rewinding, control aleatorio</li>
-          <li class="tiny">Correr y verificar los experimentos; análisis y conclusiones</li>
-        </ul>
-      </div>
-      <div class="card" style="border-top:4px solid var(--ai)">
-        <h3 style="color:var(--ai)">Apoyo de la IA (Claude Code)</h3>
-        <ul style="display:flex;flex-direction:column;gap:0.5vh;padding-left:1.2em;margin:0">
-          <li class="tiny">Guardado de pesos y máscaras (checkpoints)</li>
-          <li class="tiny">Implementación de la mayoría de los cuadernos de experimentos (yo verifiqué lo central)</li>
-          <li class="tiny">Visualizaciones, diagramas y tablas del informe</li>
-          <li class="tiny">Revisión de código e hiperparámetros contra las fuentes</li>
-          <li class="tiny">Borradores de interpretación (contrastados con los datos)</li>
-        </ul>
-      </div>
-      <div class="card">
-        <h3>Herramientas nuevas</h3>
-        <p class="tiny"><b>marimo:</b> notebooks reactivos guardados como <code>.py</code>, exportables a HTML.</p>
-        <p class="tiny"><b>uv:</b> entornos reproducibles (<code>uv.lock</code>).</p>
-        <p class="tiny"><b>Claude Code:</b> asistente en la terminal que lee el repo, edita y corre comandos con permiso.</p>
-      </div>
-    </div>
-    <div class="flow">
-      <div class="step"><b>1 · Yo</b><span>Escribí a mano los modelos, los loops de entrenamiento y <code>lth.py</code>.</span></div><span class="arrow"><svg viewBox="0 0 40 24"><path d="M3 12h30M24 3l10 9-10 9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-      <div class="step"><b>2 · IA</b><span>Conectó <code>lth.py</code> al resto de los cuadernos, corrió los experimentos y agregó checkpoints y figuras.</span></div><span class="arrow"><svg viewBox="0 0 40 24"><path d="M3 12h30M24 3l10 9-10 9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-      <div class="step"><b>3 · Yo</b><span>Lo comparé con mi implementación y con los datos.</span></div>
-    </div>
-    <p class="tiny"><b>Dónde falló:</b> agregó complejidad que no pedí, sacó la poda de <code>lth.py</code>, volvió a poner <code>print</code> que había quitado y presentó la atención como explicación. Cada número del informe sale de <code>results/*.json</code> o de los checkpoints; el historial está en §5.2.</p>
   </div>
 </section>
 
@@ -310,18 +296,31 @@ code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; font-size: 
 
 <section class="slide" id="s9">
   <div class="kicker">6 · Resultados · inspección del ViT largo (una corrida)</div>
-  <h2>ViT: poda desigual, y la atención no explica</h2>
-  <div class="body" style="gap:1.4vh">
-    <div class="row" style="grid-template-columns: 1.3fr 1fr;height:72vh;flex:none">
-      <div style="display:flex;flex-direction:column;gap:1.4vh;min-height:0">
-        <div class="card" style="padding:0.6vh 0.8vw;height:30vh;flex:none"><img src="img/vit_diagram.png" alt="Diagrama del ViT" style="width:100%;height:100%;object-fit:contain"></div>
-        <div class="card" style="padding:0.6vh 0.8vw;flex:1;min-height:0"><img src="img/vit_occlusion.png" alt="Atención contra oclusión" style="width:100%;height:100%;object-fit:contain"></div>
-      </div>
-      <div class="card" style="justify-content:center;gap:1.3vh">
-        <p class="tiny"><b>Capas.</b> Con 3.2% de los pesos, <code>head</code> conserva 21% y <code>patch_embed</code> 7%, y <code>mlp.2</code> solo 1.3%.<br><b class="g">Significa:</b> la poda quita primero lo redundante (las capas MLP internas); la entrada y la salida son pequeñas y cada peso pesa más. Mismo patrón que la CNN; es una hipótesis.</p>
-        <p class="tiny"><b>Atención vs. oclusión.</b> Los mapas del denso, ticket y rewinding se parecen entre sí (0.63–0.73) y los del aleatorio no (0.17–0.28), pero al tapar parches la correlación con la atención es <b>≈ 0</b> (0.05 denso, 0.06 ticket, 0.12 aleatorio; 150 imágenes).<br><b class="g">Significa:</b> la atención <b>no</b> dice qué usa el modelo; los mapas son descripción, no explicación. No se concluye por qué falla el control. (Imágenes de la figura elegidas.)</p>
-        <p class="tiny"><b>Clases.</b> El ticket queda dentro del ruido (±2.5) en casi todas; el aleatorio pierde en todas (hasta −14.6, pájaro).<br><b class="g">Significa:</b> la estructura sola no basta; los valores iniciales cargan información.</p>
-</div>
+  <h2>ViT: la poda no es pareja entre capas ni entre bloques</h2>
+  <p class="tiny" style="margin:0"><b>Objetivo de la inspección:</b> ver cómo funcionan los lottery tickets en las arquitecturas más grandes (el ViT), mirando qué conserva la poda y qué no.</p>
+  <div class="body" style="gap:1.4vh;justify-content:flex-start">
+    <div class="split" style="grid-template-columns:1.55fr 1fr;height:33.5vh">
+      <div class="pimg"><img src="img/vit_diagram.png" alt="Pesos vivos por tipo de capa"></div>
+      <div class="card pinfo"><h3>Qué capas sobreviven</h3><div class="sec">Qué se ve</div><ul class="pts"><li>Con 3.2% de los pesos, <code>head</code> conserva 21% y <code>patch_embed</code> 7%.</li><li><code>mlp.2</code> es la más podada: solo 1.3%.</li></ul><div class="sec sig">Qué significa</div><ul class="pts"><li>La poda quita primero lo redundante (las capas MLP internas); la entrada y la salida son pequeñas y cada peso pesa más.</li><li>Mismo patrón que la CNN; es una hipótesis.</li></ul></div>
+    </div>
+    <div class="split" style="grid-template-columns:1.55fr 1fr;height:33.5vh">
+      <div class="pimg"><img src="img/vit_depth.png" alt="Pesos vivos por bloque"></div>
+      <div class="card pinfo"><h3>Qué bloques sobreviven</h3><div class="sec">Qué se ve</div><ul class="pts"><li><code>mlp.0</code> conserva menos pesos en los bloques tardíos: 16.1% en el bloque 1 y 8.3% en el 6 (con 11.6% de los pesos).</li><li><code>proj</code> hace lo contrario (3.2% a 12.1%); <code>qkv</code> es casi plano.</li><li><code>proj</code> del bloque 1 queda en 0.7% (con 3.2% de los pesos).</li></ul><div class="sec sig">Qué significa</div><ul class="pts"><li>La poda no es pareja ni entre capas ni entre bloques.</li><li>No se probó por qué.</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="s9b">
+  <div class="kicker">6 · Resultados · inspección del ViT largo (una corrida)</div>
+  <h2>ViT: por clase, y la atención no explica</h2>
+  <div class="body" style="gap:1.4vh;justify-content:flex-start">
+    <div class="split" style="grid-template-columns:1.55fr 1fr;height:28vh">
+      <div class="pimg"><img src="img/cls.png" alt="Accuracy por clase"></div>
+      <div class="card pinfo"><h3>Accuracy por clase</h3><div class="sec">Qué se ve</div><ul class="pts"><li>El ticket queda dentro del ruido (±2.5) en casi todas las clases.</li><li>El aleatorio pierde en todas (hasta −14.6 puntos, pájaro).</li></ul><div class="sec sig">Qué significa</div><ul class="pts"><li>La estructura sola no basta: los valores iniciales cargan información.</li></ul></div>
+    </div>
+    <div class="split" style="grid-template-columns:1.7fr 1fr;height:41vh">
+      <div class="pimg"><img src="img/vit_occlusion.png" alt="Atención contra oclusión"></div>
+      <div class="card pinfo"><h3>Atención y oclusión</h3><div class="sec">Qué se ve</div><ul class="pts"><li>Los mapas del denso, ticket y rewinding se parecen entre sí (0.63–0.73); los del aleatorio no (0.17–0.28).</li><li>Pero la correlación entre atención y oclusión es <b>≈ 0</b> (0.05 denso, 0.06 ticket, 0.12 aleatorio; 150 imágenes).</li></ul><div class="sec sig">Qué significa</div><ul class="pts"><li>La atención <b>no</b> dice qué usa el modelo: los mapas son descripción, no explicación.</li><li>No se concluye por qué falla el control. (Las imágenes de la figura están elegidas.)</li></ul></div>
     </div>
   </div>
 </section>
@@ -426,9 +425,14 @@ const draw = {
   s7: () => { chart('c-cnn-b', DATA.cnn); chart('c-cnng-b', DATA.cnng); },
   s8: () => { chart('c-resnet-b', DATA.resnet); chart('c-vitlong-b', DATA.vitlong); },
 };
-document.querySelectorAll('#s4 .tab').forEach(b => b.onclick = () => {
-  document.querySelectorAll('#s4 .tab').forEach(x => x.classList.toggle('on', x === b));
-  document.querySelectorAll('#s4 .panel').forEach(p => p.classList.toggle('on', p.id === 'p-' + b.dataset.t));
+const PRINT = location.search.includes('print');
+if (PRINT) { document.body.classList.add('print'); document.documentElement.classList.add('print'); }
+['s4'].forEach(id => {
+  const root = document.getElementById(id);
+  root.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+    root.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === b));
+    root.querySelectorAll('.panel').forEach(p => p.classList.toggle('on', p.id === id + '-' + b.dataset.t));
+  });
 });
 const slides = [...document.querySelectorAll('.slide')];
 let i = Math.max(0, Math.min(slides.length - 1, (parseInt(location.hash.slice(1)) || 1) - 1));
@@ -444,6 +448,7 @@ function show(n) {
   if (fn) { const run = () => { try { fn(); } catch (e) { console.error('dibujo falló:', e); } }; run(); requestAnimationFrame(run); }
 }
 addEventListener('load', () => show(i));
+if (PRINT) addEventListener('load', () => { const all = () => Object.values(draw).forEach(f => { try { f(); } catch (e) { console.error(e); } }); all(); requestAnimationFrame(all); setTimeout(all, 300); });
 document.getElementById('prev').onclick = () => show(i - 1);
 document.getElementById('next').onclick = () => show(i + 1);
 addEventListener('resize', () => show(i));
