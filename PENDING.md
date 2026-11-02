@@ -4,7 +4,7 @@ As of 2026-11-01. All training is finished. What is left is your analysis and wr
 
 ## 1. DONE: `02b_cnn_global.py` (global pruning of the CNN)
 
-Ran on 2026-11-01. At 10.7% of the weights the ticket gets **75.7%** vs. 69.4% random (dense 74.0%); per-layer (02) had 53.0% vs. 61.2%. Masks at that point: first conv keeps 88% (1,523 weights vs. 188), 0 empty filters, 0 dead hidden units. Already folded into `07_informe.py` (section 4, Q7, conclusions), slide 5/10 and `results/cnn_global_cifar10.json`. Output: `notebooks/02b_cnn_global.html`, log in `cnn_global.log`.
+Ran on 2026-11-01. At 10.7% of the weights the ticket gets **75.7%** vs. 69.4% random (dense 74.0%); per-layer (02) had 53.0% vs. 61.2%. Masks at that point: first conv keeps 88% (1,523 weights vs. 188), 0 empty filters, 0 dead hidden units. Already folded into `07_informe.py` (section 4, Q7, conclusions), slide 5/10 and `results/cnn_global_cifar10.json`. Output: `notebooks/02b_cnn_global.html`.
 
 ## 1b. New: demo notebook `08_demo.py`
 
@@ -51,9 +51,7 @@ Rewind-epoch sweep (the actual test of "more complex means later"), several seed
 
 ## 5. Loose ends
 
-- Empty `notebooks/02_mlp_mnist.py` can be deleted.
 - `05_comparison.py` is numbered like `05_vit_longer.py`; rename (e.g. to `08_comparison.py`) or leave.
-- The `*.log` files in the project root are tracked or untracked at random; add `*.log` to `.gitignore` if you do not want them in git.
 - `03_resnet18_cifar10.py` still has a parameter-count cell (~lines 209-220), harmless.
 
 ## Commands

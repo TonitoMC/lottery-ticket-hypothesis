@@ -1,8 +1,6 @@
 .venv/
 __pycache__/
 data/
-checkpoints/
-*.pt
 __marimo__/
 
 # LaTeX build files
@@ -15,3 +13,28 @@ report/*.fdb_latexmk
 report/*.synctex.gz
 report/*.bbl
 report/*.blg
+
+# Logs temporales
+*.log
+
+# Checkpoints: solo el subconjunto para la demo (el resto se regenera corriendo los notebooks)
+checkpoints/**/*.pt
+!checkpoints/**/base.pt
+!checkpoints/01_mlp/ticket_r04_*.pt
+!checkpoints/01_mlp/ticket_r10_*.pt
+!checkpoints/01_mlp/ticket_r15_*.pt
+!checkpoints/01_mlp/random_r04_*.pt
+!checkpoints/01_mlp/random_r10_*.pt
+!checkpoints/01_mlp/random_r15_*.pt
+!checkpoints/02_cnn/ticket_r05_*.pt
+!checkpoints/02_cnn/random_r05_*.pt
+!checkpoints/02_cnn/ticket_r10_*.pt
+!checkpoints/02_cnn/random_r10_*.pt
+!checkpoints/02b_cnn_global/ticket_r10_*.pt
+!checkpoints/02b_cnn_global/random_r10_*.pt
+!checkpoints/05_vit_longer/ticket_r05_*.pt
+!checkpoints/05_vit_longer/random_r05_*.pt
+!checkpoints/05_vit_longer/late_r05_*.pt
+!checkpoints/05_vit_longer/ticket_r07_*.pt
+!checkpoints/05_vit_longer/random_r07_*.pt
+!checkpoints/05_vit_longer/late_r07_*.pt

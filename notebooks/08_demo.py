@@ -27,6 +27,7 @@ def _(mo):
 @app.cell
 def _():
     import io
+    import json
     import os
     import marimo as mo
     import numpy as np
@@ -41,7 +42,7 @@ def _():
     import lth
 
     device = "cpu"  # basta para una imagen a la vez; así corre mientras la GPU entrena otra cosa
-    return F, Image, datasets, device, io, lth, mo, nn, np, os, plt, torch, v2
+    return F, Image, datasets, device, io, json, lth, mo, nn, np, os, plt, torch, v2
 
 
 @app.cell
@@ -106,9 +107,9 @@ def _(F, nn, torch):
             return self.blocks[-1].attention(x)[:, :, 0, 1:].mean(1)
 
     MODELS = {
-        "CNN, poda por capa (02)": dict(dir="../checkpoints/02_cnn", cls=CNN, norm=False),
-        "CNN, poda global (02b)": dict(dir="../checkpoints/02b_cnn_global", cls=CNN, norm=False),
-        "ViT largo, poda global (05)": dict(dir="../checkpoints/05_vit_longer", cls=ViT, norm=True),
+        "CNN, poda por capa (02)": dict(dir="../checkpoints/02_cnn", res="cnn_cifar10", cls=CNN, norm=False),
+        "CNN, poda global (02b)": dict(dir="../checkpoints/02b_cnn_global", res="cnn_global_cifar10", cls=CNN, norm=False),
+        "ViT largo, poda global (05)": dict(dir="../checkpoints/05_vit_longer", res="vit_longer", cls=ViT, norm=True),
     }
     return MODELS, ViT
 
@@ -139,8 +140,10 @@ def _(MODELS, lth, mo):
 
 @app.cell
 def _(list_ckpts, mo, model_pick):
+    # Solo hay checkpoints de algunos niveles (los más significativos); se ofrecen los disponibles
     _rows = list_ckpts(model_pick.value)["ticket"]
-    round_pick = mo.ui.slider(1, len(_rows) - 1, value=len(_rows) - 1, label="Ronda de poda (más alta = menos pesos)", show_value=True)
+    _opts = {f"{r[1]:.1f}% de los pesos (ronda {r[0]})": r[0] for r in _rows}
+    round_pick = mo.ui.dropdown(_opts, value=list(_opts)[-1], label="Nivel de poda")
     return (round_pick,)
 
 
@@ -170,7 +173,7 @@ def _(Image, MEAN, STD, CLASSES, img_pick, io, np, test_set, torch, upload):
 
 
 @app.cell
-def _(MEAN, MODELS, STD, ViT, device, list_ckpts, lth, model_pick, round_pick, torch, x):
+def _(MEAN, MODELS, STD, ViT, device, json, list_ckpts, lth, model_pick, round_pick, torch, x):
     spec = MODELS[model_pick.value]
     _ck = list_ckpts(model_pick.value)
     _base = torch.load(f"{spec['dir']}/base.pt", map_location="cpu")
@@ -182,10 +185,11 @@ def _(MEAN, MODELS, STD, ViT, device, list_ckpts, lth, model_pick, round_pick, t
         return _m.to(device).eval()
 
     # (nombre, modelo, % de pesos, acc de prueba completa)
-    variants = [("denso", _load(_base["dense"]), 100.0, _ck["ticket"][0][2])]
+    _dense_acc = json.load(open(f"../results/{spec['res']}.json"))["ticket"][0]["acc"]
+    variants = [("denso", _load(_base["dense"]), 100.0, _dense_acc)]
     for _tag, _name in [("ticket", "ticket"), ("late", "rewinding"), ("random", "aleatorio")]:
-        if _tag in _ck:
-            _row = _ck[_tag][round_pick.value]
+        _row = next((c for c in _ck.get(_tag, []) if c[0] == round_pick.value), None)
+        if _row:
             variants.append((_name, _load(lth.load_checkpoint(_row[3])["model"]), _row[1], _row[2]))
     with torch.no_grad():
         outputs = {n: torch.softmax(m(_inp), dim=1)[0] for n, m, _, _ in variants}
@@ -241,13 +245,14 @@ def _(mo):
 
 
 @app.cell
-def _(list_ckpts, model_pick, plt, round_pick):
-    _ck = list_ckpts(model_pick.value)
+def _(MODELS, json, list_ckpts, model_pick, plt, round_pick):
+    _res = json.load(open(f"../results/{MODELS[model_pick.value]['res']}.json"))
     _fig, _ax = plt.subplots(figsize=(7, 3.8))
-    for _tag, _lab in [("ticket", "ticket"), ("late", "rewinding"), ("random", "aleatorio")]:
-        if _tag in _ck:
-            _ax.plot([c[1] for c in _ck[_tag]], [c[2] for c in _ck[_tag]], marker="o", markersize=4, label=_lab)
-    _ax.axvline(_ck["ticket"][round_pick.value][1], color="gray", ls=":")
+    for _key, _lab in [("ticket", "ticket"), ("ticket_late", "rewinding"), ("random", "aleatorio")]:
+        if _key in _res:
+            _ax.plot([c["weights_left"] * 100 for c in _res[_key]], [c["acc"] for c in _res[_key]], marker="o", markersize=4, label=_lab)
+    _sel = next(c[1] for c in list_ckpts(model_pick.value)["ticket"] if c[0] == round_pick.value)
+    _ax.axvline(_sel, color="gray", ls=":")
     _ax.set_xscale("log")
     _ax.invert_xaxis()
     _ax.set_xlabel("Pesos restantes (%)")

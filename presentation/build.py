@@ -45,7 +45,7 @@ def from_log(path):
     return curves or None
 
 
-vit_long = from_json(load("vit_longer")) or from_log(root / "vit_longer.log")
+vit_long = from_json(load("vit_longer"))
 data = {
     "mlp": from_json(load("mlp_mnist")),
     "cnn": from_json(load("cnn_cifar10")),

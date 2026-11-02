@@ -33,7 +33,21 @@ One seed per run; differences of about 1 point are noise. See `notebooks/07_info
 
 ## Checkpoints
 
-Each IMP round writes `checkpoints/<run>/<tag>_rNN_<pct>pct.pt` (`tag` = `ticket`, `late` for the rewind curve, `random`) with the weights, boolean masks, accuracy and the fraction of weights left; `base.pt` holds the dense, initial and rewind weights. Load with `lth.load_checkpoint(path)` and list with `lth.list_checkpoints(dir)`. They are git-ignored (~750 MB); only runs `01_mlp`, `02_cnn` and `05_vit_longer` have them (03 and 04 predate the saving code).
+Each IMP round writes `checkpoints/<run>/<tag>_rNN_<pct>pct.pt` (`tag` = `ticket`, `late` for the rewind curve, `random`) with the weights, boolean masks, accuracy and the fraction of weights left; `base.pt` holds the dense, initial and rewind weights. Load with `lth.load_checkpoint(path)` and list with `lth.list_checkpoints(dir)`. Only a demo subset (~235 MB: every `base.pt`, plus ticket/random(/late) at the most informative levels: MLP 41/10.7/3.5%; CNN per-layer 32.8% (its peak) and 10.7% (collapse); CNN global 10.7%; ViT 11.6% and 4.9% (where rewinding starts to matter)) is in git. The rest is git-ignored (~1.1 GB) and regenerates by re-running the notebooks. Only runs `01_mlp`, `02_cnn` and `05_vit_longer` have them (03 and 04 predate the saving code).
+
+### Demo (`notebooks/08_demo.py`)
+
+```bash
+cd notebooks && uv run marimo run 08_demo.py
+```
+
+It works from a fresh clone using only the checkpoints in git: pick a model (CNN per-layer, CNN global, ViT), a pruning level among those available, and a CIFAR-10 test image (or upload one); it shows the predictions of the dense net, the ticket, the rewinding ticket (ViT) and the random control, the ViT attention (descriptive only, see the report: it does not predict occlusion importance), and the full accuracy curves from `results/*.json`. The first run downloads CIFAR-10 into `notebooks/data` (internet needed). It runs on CPU.
+
+### Repo hygiene
+
+- Logs (`*.log`) are git-ignored; the experiment logs were deleted because every number is already in `results/*.json`.
+- LaTeX build files are git-ignored; `report/informe.pdf` is committed on purpose.
+- To regenerate the report figures that need all rounds (ViT curves, block-depth survival), re-run notebooks 01-05 to recreate the full checkpoints first: `uv run python report/make_figures.py`.
 
 ## Slides
 

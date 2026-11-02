@@ -360,7 +360,7 @@ def fig_cls():
 
 
 @figure("attn", "ViT largo: mapas de atención del [CLS]",
-        "Atención del token [CLS] hacia los 64 parches (8×8) en el último bloque, promediada sobre las 3 cabezas, para 5 imágenes de prueba (columnas). Cada fila es un modelo con 11.6% de los pesos; 'aleatorio' tiene la misma máscara que el ticket con otra inicialización. Más brillante = más atención. Es una pista de dónde mira el modelo, no una explicación de su decisión.")
+        "Atención del token [CLS] hacia los 64 parches (8×8) en el último bloque, promediada sobre las 3 cabezas, para 5 imágenes de prueba (columnas). Cada fila es un modelo con 11.6% de los pesos; 'aleatorio' tiene la misma máscara que el ticket con otra inicialización. Más brillante = más atención. Describe dónde pone peso la atención, no qué usa el modelo: su correlación con la oclusión es ≈ 0 (ver vit_occlusion).")
 def fig_attn():
     c = vit_ctx()
     t = torch.tensor(c["test"].targets)
@@ -511,6 +511,52 @@ def fig_magnitudes():
     ax.set_title("ViT largo", fontsize=9)
     fig.tight_layout()
     save(fig, "magnitudes")
+
+
+@figure("vit_depth", "ViT largo: pesos vivos por bloque y tipo de capa",
+        "Fracción de pesos vivos de cada capa dentro de cada uno de los 6 bloques (columna 1 = el más cercano a la entrada), con 11.6% y con 3.2% de los pesos totales. Clara = casi todos vivos. Muestra si la poda golpea más a los bloques tempranos o a los tardíos.")
+def fig_vit_depth():
+    c = vit_ctx()
+    rows = {"11.6%": c["at"]("ticket"), "3.2%": c["curves"]["ticket"][-1]}
+    types = ["qkv", "proj", "mlp.0", "mlp.2"]
+    fig, axes = plt.subplots(1, 2, figsize=(9, 2.9))
+    for ax, (lab, r) in zip(axes, rows.items()):
+        ms = c["load"](r[3])["masks"]
+        g = np.array([[ms[f"blocks.{i}.{t}.weight"].float().mean().item() * 100 for i in range(6)] for t in types])
+        ax.grid(False)
+        im = ax.imshow(g, aspect="auto", cmap="viridis", vmin=0, vmax=max(g.max(), 1))
+        ax.set_yticks(range(4))
+        ax.set_yticklabels(types)
+        ax.set_xticks(range(6))
+        ax.set_xticklabels([str(i + 1) for i in range(6)])
+        ax.set_xlabel("Bloque (1 = más cerca de la entrada)")
+        ax.set_title(f"{lab} de los pesos totales", fontsize=9)
+        for i in range(4):
+            for j in range(6):
+                ax.text(j, i, f"{g[i, j]:.1f}", ha="center", va="center", fontsize=7.5, color="w" if g[i, j] < g.max() * 0.55 else "k")
+        fig.colorbar(im, ax=ax, label="% vivo")
+    fig.tight_layout()
+    save(fig, "vit_depth")
+
+
+@figure("mlp_mask", "MLP: qué píxeles de la imagen sobreviven en la primera capa",
+        "Para cada píxel de la imagen de entrada de 28×28, la fracción de las 300 neuronas ocultas que sigue conectada a él, en tres niveles de poda (por capa, 20% por ronda). Oscuro = el píxel casi no se usa. El borde de la imagen, que casi siempre vale 0 en MNIST, es lo primero que se desconecta.")
+def fig_mlp_mask():
+    d = ROOT / "checkpoints" / "01_mlp"
+    picks = [("ticket_r04_", "41.0%"), ("ticket_r10_", "10.7%"), ("ticket_r15_", "3.5%")]
+    fig, axes = plt.subplots(1, 3, figsize=(9.5, 3.2))
+    for ax, (prefix, lab) in zip(axes, picks):
+        ck = torch.load(next(d.glob(prefix + "*.pt")), map_location="cpu")
+        m = ck["masks"]["layers.0.weight"].float()
+        per_pixel = m.mean(0).reshape(28, 28).numpy()
+        dead = int((m.sum(0) == 0).sum())
+        ax.grid(False)
+        im = ax.imshow(per_pixel, cmap="viridis", vmin=0, vmax=max(per_pixel.max(), 1e-6))
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_title(f"{lab} de los pesos\n{dead} píxeles desconectados", fontsize=8.5)
+    fig.colorbar(im, ax=axes, label="fracción de neuronas conectadas", shrink=0.8)
+    save(fig, "mlp_mask")
 
 
 # ---------------------------------------------------------------- tablas (LaTeX)

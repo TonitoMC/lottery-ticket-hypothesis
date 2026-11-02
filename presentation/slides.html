@@ -215,19 +215,25 @@ code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; font-size: 
 <section class="slide" id="s6">
   <div class="kicker">6 · Resultados · H0 existencia</div>
   <h2>Hay tickets en las 4 arquitecturas; la ResNet, con rewind</h2>
-  <div class="body" style="gap:1.4vh">
+  <div class="body" style="gap:1.2vh;justify-content:flex-start">
     <div class="legend"><span><i style="color:var(--ticket)"></i>Ticket (θ₀)</span><span><i style="color:var(--rewind)"></i>Ticket con rewinding (θₖ)</span><span><i style="color:var(--random);border-top-style:dashed"></i>Control: pesos nuevos</span><span class="sub">Eje x: % de pesos que quedan (log); eje y: accuracy de prueba</span></div>
     <div class="row three">
-      <div class="chart"><h3>MLP · MNIST</h3><div id="c-mlp" style="height:24vh"></div></div>
-      <div class="chart"><h3>CNN · poda por capa</h3><div id="c-cnn" style="height:24vh"></div></div>
-      <div class="chart"><h3>ResNet-20 · rewind época 1</h3><div id="c-resnet" style="height:24vh"></div></div>
+      <div class="chart"><h3>MLP · MNIST</h3><div id="c-mlp" style="height:17vh"></div></div>
+      <div class="chart"><h3>CNN · poda por capa</h3><div id="c-cnn" style="height:17vh"></div></div>
+      <div class="chart"><h3>ResNet-20 · rewind época 1</h3><div id="c-resnet" style="height:17vh"></div></div>
     </div>
     <div class="row three">
-      <div class="chart"><h3>CNN · poda global</h3><div id="c-cnng" style="height:24vh"></div></div>
-      <div class="chart"><h3>ViT · 20 épocas</h3><div id="c-vit" style="height:24vh"></div></div>
-      <div class="chart"><h3>ViT · 100 épocas</h3><div id="c-vitlong" style="height:24vh"></div></div>
+      <div class="chart"><h3>CNN · poda global</h3><div id="c-cnng" style="height:17vh"></div></div>
+      <div class="chart"><h3>ViT · 20 épocas</h3><div id="c-vit" style="height:17vh"></div></div>
+      <div class="chart"><h3>ViT · 100 épocas</h3><div id="c-vitlong" style="height:17vh"></div></div>
     </div>
-    <p class="tiny">Densas: 97.7 · 73.0 / 74.0 · 90.9 · 78.9 · 86.0%. El ticket le gana al control por 5-9 puntos (más que el ruido de ±0.6 de 10,000 imágenes). ResNet: desde θ₀ queda igual al control (86.3 vs 86.5% con 10.7% de los pesos); con rewinding, 89.6%.</p>
+    <div class="row" style="grid-template-columns: 1fr 1.6fr;align-items:center">
+      <div class="card" style="padding:0.4vh 0.6vw;height:18vh"><img src="img/mlp_mask.png" alt="Máscara del MLP" style="width:100%;height:100%;object-fit:contain"></div>
+      <div>
+        <p class="tiny"><b>MLP, qué sobrevive:</b> cada cuadro es la imagen de entrada de 28×28; oscuro = píxel casi sin conexiones. Con 3.5% de los pesos, los 128 píxeles del borde (siempre 0 en MNIST) quedan totalmente desconectados.</p>
+        <p class="tiny" style="margin-top:0.6vh">Densas: 97.7 · 73.0 / 74.0 · 90.9 · 78.9 · 86.0%. Ticket &gt; control por 5-9 puntos (el ruido es ±0.6). ResNet: desde θ₀ = control (86.3 vs 86.5%); con rewinding, 89.6%.</p>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -277,16 +283,16 @@ code { background: var(--bg2); padding: 1px 6px; border-radius: 6px; font-size: 
 
 <section class="slide" id="s9">
   <div class="kicker">6 · Resultados · inspección del ViT largo (una corrida)</div>
-  <h2>ViT: poda desigual, atención distinta</h2>
+  <h2>ViT: poda desigual, y la atención no explica</h2>
   <div class="body" style="gap:1.4vh">
     <div class="row" style="grid-template-columns: 1.3fr 1fr;height:72vh;flex:none">
       <div style="display:flex;flex-direction:column;gap:1.4vh;min-height:0">
         <div class="card" style="padding:0.6vh 0.8vw;height:30vh;flex:none"><img src="img/vit_diagram.png" alt="Diagrama del ViT" style="width:100%;height:100%;object-fit:contain"></div>
-        <div class="card" style="padding:0.6vh 0.8vw;flex:1;min-height:0"><img src="img/vit_attn.png" alt="Atención" style="width:100%;height:100%;object-fit:contain"></div>
+        <div class="card" style="padding:0.6vh 0.8vw;flex:1;min-height:0"><img src="img/vit_occlusion.png" alt="Atención contra oclusión" style="width:100%;height:100%;object-fit:contain"></div>
       </div>
       <div class="card" style="justify-content:center;gap:1.3vh">
         <p class="tiny"><b>Capas.</b> Con 3.2% de los pesos, <code>head</code> conserva 21% y <code>patch_embed</code> 7%, y <code>mlp.2</code> solo 1.3%.<br><b class="g">Significa:</b> la poda quita primero lo redundante (las capas MLP internas); la entrada y la salida son pequeñas y cada peso pesa más. Mismo patrón que la CNN; es una hipótesis.</p>
-        <p class="tiny"><b>Atención.</b> Misma máscara que el ticket, otros pesos iniciales: el aleatorio mira abajo y falla.<br><b class="g">Significa:</b> la inicialización condiciona dónde aprende a mirar la red, no solo la máscara. Cautela: imágenes <i>elegidas</i>, una corrida, y atención no es explicación.</p>
+        <p class="tiny"><b>Atención vs. oclusión.</b> Los mapas de atención de los modelos se ven distintos (el aleatorio apunta abajo y falla), pero al taparlas con parches la correlación es <b>≈ 0</b> (0.05 denso, 0.06 ticket, 0.12 aleatorio; 150 imágenes).<br><b class="g">Significa:</b> la atención <b>no</b> dice qué usa el modelo; los mapas son descripción, no explicación. No se concluye por qué falla el control. (Imágenes de la figura elegidas.)</p>
         <p class="tiny"><b>Clases.</b> El ticket queda dentro del ruido (±2.5) en casi todas; el aleatorio pierde en todas (hasta −14.6, pájaro).<br><b class="g">Significa:</b> la estructura sola no basta; los valores iniciales cargan información.</p>
         <p class="tiny"><b>Gradientes.</b> El rewinding arranca con gradientes menores (qkv: 0.10 contra 0.29), coherente con que ayude a poca densidad; no se probó que sea la causa.</p>
       </div>

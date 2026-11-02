@@ -118,3 +118,20 @@ fig.savefig(OUT / "cnn_filters.png", dpi=200)
 if LIGHT: fig.savefig(OUT / "cnn_filters.pdf")
 plt.close(fig)
 print("listo", {k: [round(x, 1) for x in v] for k, v in keep.items()})
+
+
+# ------------------------------------------------------------------ MLP: qué píxeles sobreviven (solo tema oscuro; el informe usa report/make_figures.py)
+if not LIGHT:
+    d = root / "checkpoints" / "01_mlp"
+    fig, axes = plt.subplots(1, 3, figsize=(9.5, 3.3))
+    for ax, (prefix, lab) in zip(axes, [("ticket_r04_", "41.0%"), ("ticket_r10_", "10.7%"), ("ticket_r15_", "3.5%")]):
+        ck = torch.load(next(d.glob(prefix + "*.pt")), map_location="cpu")
+        m = ck["masks"]["layers.0.weight"].float()
+        im = ax.imshow(m.mean(0).reshape(28, 28).numpy(), cmap="viridis", vmin=0)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_title(f"{lab} de los pesos\n{int((m.sum(0) == 0).sum())} píxeles desconectados", fontsize=9, color=INK)
+    fig.colorbar(im, ax=axes, label="fracción de neuronas conectadas", shrink=0.8)
+    fig.savefig(OUT / "mlp_mask.png", dpi=190, bbox_inches="tight")
+    plt.close(fig)
+    print("mlp_mask listo")

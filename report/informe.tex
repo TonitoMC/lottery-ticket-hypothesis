@@ -10,13 +10,18 @@
 \usepackage[hidelinks]{hyperref}
 \usepackage{listings}
 \usepackage{xcolor}
-\usepackage{parskip}
+\usepackage[skip={0.6em plus 0.2em}]{parskip}
+\usepackage{csquotes}
+\usepackage{adjustbox}
+\usepackage{array,tabularx}
 \usepackage{pgfplots}
 \usepackage{graphicx}
 \usepackage{float}
 \usepackage[backend=biber,style=numeric,sorting=none]{biblatex}
 \addbibresource{referencias.bib}
 
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\emergencystretch=3em
 \usetikzlibrary{arrows.meta}
 \pgfplotsset{compat=1.18}
 
@@ -60,6 +65,7 @@ La \textit{Lottery Ticket Hypothesis} (LTH) afirma que dentro de una red neurona
 Datos del curso (universidad, catedrático, fecha de entrega), integrantes del grupo, enlace al repositorio público y enlace al video. La instrucción pide repositorio público, video del funcionamiento y presentación de máximo 10 diapositivas.
 \end{pendiente}
 
+\newpage
 \tableofcontents
 \newpage
 
@@ -123,7 +129,7 @@ Para contestar las preguntas se diseñó una serie de experimentos que comparten
 
 \begin{table}[H]
 \centering\small
-\begin{tabular}{@{}llllll@{}}
+\begin{tabularx}{\textwidth}{@{}llYYYr@{}}
 \toprule
 Exp. & Arquitectura / datos & Poda & Rewind & Hipótesis que prueba & Epochs/ronda \\
 \midrule
@@ -135,7 +141,7 @@ Exp. & Arquitectura / datos & Poda & Rewind & Hipótesis que prueba & Epochs/ron
 05 & ViT, entrenamiento largo & global & época 5 & H0, H1, (H2); validar el baseline & 100 \\
 06 & Inspección de los checkpoints de 05 & -- & -- & qué encontró la poda & -- \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \caption{Matriz de experimentos. (H2) indica que el warmup solo se observa, no se manipula.}
 \end{table}
 
@@ -176,7 +182,7 @@ Los experimentos son cuadernos \texttt{marimo} guardados como \texttt{.py} (reac
 \subsection{Hiperparámetros}
 \begin{table}[H]
 \centering\small
-\begin{tabular}{@{}lllllll@{}}
+\begin{tabularx}{\textwidth}{@{}lYYYYY@{}}
 \toprule
  & MLP & CNN & ResNet & ViT (04) & ViT largo (05) \\
 \midrule
@@ -186,7 +192,7 @@ Poda por ronda & 20\% capa & 20\% capa / global & 20\% global (solo conv.) & 35\
 Rondas & 15 & 10 & 10 & 8 & 8 \\
 Warmup & no & no & no & 2 ép.\ + coseno & 5 ép.\ + coseno \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \caption{Configuración de cada experimento (LS = \textit{label smoothing}). Las desviaciones respecto a las fuentes están en el Apéndice~\ref{app:desv}.}
 \end{table}
 
@@ -220,12 +226,12 @@ Esta sección es obligatoria según la instrucción del proyecto. Falta el \text
 \end{itemize}
 
 \begin{pendiente}
-Tabla del historial de prompts (prompt, qué se obtuvo, ¿satisfactorio?, por qué, cómo se validó). Dos ejemplos concretos del proyecto que se pueden desarrollar: (1) la primera corrida del ViT denso largo se descartó y repitió (\texttt{vit\_longer\_dense\_first\_attempt.log}); (2) el reporte afirmaba una explicación causal del colapso de la CNN que solo se pudo confirmar al correr 02b, y por eso se redactó como \textit{posible, no probada} hasta entonces.
+Tabla del historial de prompts (prompt, qué se obtuvo, ¿satisfactorio?, por qué, cómo se validó). Dos ejemplos concretos del proyecto que se pueden desarrollar: (1) la primera corrida del ViT denso largo se descartó y repitió; (2) el reporte afirmaba una explicación causal del colapso de la CNN que solo se pudo confirmar al correr 02b, y por eso se redactó como \textit{posible, no probada} hasta entonces.
 \end{pendiente}
 
 \begin{table}[H]
 \centering\small
-\begin{tabular}{@{}p{0.34\linewidth}p{0.22\linewidth}p{0.36\linewidth}@{}}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.34\linewidth}>{\raggedright\arraybackslash}p{0.22\linewidth}>{\raggedright\arraybackslash}p{0.36\linewidth}@{}}
 \toprule
 Prompt (resumen) & Resultado & Evaluación y por qué \\
 \midrule
@@ -252,12 +258,20 @@ La Figura~\ref{fig:curves} muestra las curvas de todas las corridas y la Tabla~\
 
 \begin{table}[H]
 \centering\footnotesize
-\input{figures/table_summary.tex}
+\adjustbox{max width=\textwidth}{\input{figures/table_summary.tex}}
 \caption{Resumen. ``Mín.\ pesos'': la red más pequeña a menos de 1 punto de la accuracy densa. ``Ventaja del ticket'': diferencia promedio entre el ticket y el control aleatorio sobre las rondas podadas. ``Ganancia del rewind'': diferencia promedio entre el ticket con rewinding y el clásico.}
 \label{tab:summary}
 \end{table}
 
 \paragraph{MLP / MNIST.} El ticket se mantiene entre 97.2\% y 98.2\% hasta 3.5\% de los pesos, a la par de la red densa (97.7\%), mientras que la reinicialización aleatoria cae a 95.7\%. No se probó el rewinding. En la primera capa, 128 de los 784 píxeles de entrada quedan sin ningún peso (el borde de la imagen), lo cual es esperable porque los píxeles que siempre valen 0 no reciben gradiente.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{mlp_mask.pdf}
+\caption{MLP: para cada píxel de la imagen de $28\times28$, la fracción de las 300 neuronas ocultas que sigue conectada a él en la primera capa, en tres niveles de poda.}
+\label{fig:mlpmask}
+\end{figure}
+\textit{Cómo leerla:} oscuro = el píxel casi no se usa. Con 41\% de los pesos todavía todos los píxeles tienen alguna conexión; con 3.5\%, 128 píxeles del borde (donde las dígitos de MNIST casi siempre valen 0) quedan completamente desconectados y el resto se concentra en el centro de la imagen.
 
 \paragraph{CNN / CIFAR-10.} Con poda por capa el ticket supera a la red densa (73.0\%) hasta con 26\% de los pesos, con un máximo de 77.2\% con 33--41\%, y supera al control hasta con 21\%; por debajo de eso cae a 61.4\% con 16.8\%, 62.6\% con 13.4\% y 53.0\% con 10.7\%, por debajo del control en 16.8\% y 10.7\% (ver Sección~\ref{sec:h3}). Con poda global el ticket se mantiene entre 73.6\% y 76.9\%, a la par o por encima de la red densa (74.0\%) en todo el rango y por encima del control desde 64\% de los pesos.
 
@@ -276,7 +290,7 @@ Con 100 épocas la red densa llega a 86.0\% de accuracy de prueba (78.9\% en 04)
 
 \begin{table}[H]
 \centering\small
-\input{figures/table_vitlong.tex}
+\adjustbox{max width=\textwidth}{\input{figures/table_vitlong.tex}}
 \caption{ViT largo (05): accuracy de prueba (\%) por porcentaje de pesos restantes.}
 \label{tab:vitlong}
 \end{table}
@@ -286,7 +300,7 @@ El ticket sigue por encima de la red densa hasta $\sim$12\% de los pesos, así q
 \subsection{H1: rewinding según la arquitectura}
 \begin{table}[H]
 \centering\small
-\begin{tabular}{@{}lllp{0.38\linewidth}@{}}
+\begin{tabular}{@{}lll>{\raggedright\arraybackslash}p{0.38\linewidth}@{}}
 \toprule
 Arquitectura & Rewind probado & ¿Hizo falta? & Evidencia \\
 \midrule
@@ -341,7 +355,7 @@ Con poda por capa el ticket de la CNN cae a partir de 16.8\% de los pesos y lleg
 
 \begin{table}[H]
 \centering\footnotesize
-\input{figures/table_cnnmasks.tex}
+\adjustbox{max width=\textwidth}{\input{figures/table_cnnmasks.tex}}
 \caption{CNN, ronda 10 (10.7\% de los pesos). ``Vacíos'': filtros convolucionales sin ningún peso vivo; en fc3, neuronas ocultas sin ningún peso hacia la salida.}
 \label{tab:cnnmasks}
 \end{table}
@@ -375,6 +389,14 @@ Se inspeccionaron los checkpoints de 05 a 11.6\% de los pesos (ronda 5). Las fig
 
 \begin{figure}[H]
 \centering
+\includegraphics[width=\textwidth]{vit_depth.pdf}
+\caption{ViT largo: porcentaje de pesos vivos de cada capa dentro de cada bloque (1 = el más cercano a la entrada), con 11.6\% y 3.2\% de los pesos totales.}
+\label{fig:vitdepth}
+\end{figure}
+\textit{Cómo leerla:} cada celda es una capa de un bloque; clara = más pesos vivos. Los patrones son: \texttt{mlp.0} pierde más pesos a mayor profundidad (16.1\% en el bloque 1 a 8.3\% en el 6 con 11.6\% de los pesos), \texttt{proj} hace lo contrario (3.2\% a 12.1\%), y \texttt{qkv} es casi plano. La capa \texttt{proj} del primer bloque queda casi vacía (0.7\% con 3.2\% de los pesos). No se probó por qué; una posibilidad es que la proyección de la primera capa de atención aporte poco porque las representaciones aún son simples, pero con una corrida y sin ablación es solo una hipótesis.
+
+\begin{figure}[H]
+\centering
 \includegraphics[width=\textwidth]{vit_diagram.pdf}
 \caption{ViT largo: fracción de pesos vivos por tipo de capa (sumados sobre los 6 bloques) con 11.6\% y con 3.2\% de los pesos totales, y número de pesos que quedan.}
 \label{fig:vitdiagram}
@@ -397,7 +419,7 @@ Se inspeccionaron los checkpoints de 05 a 11.6\% de los pesos (ronda 5). Las fig
 \caption{ViT largo: atención del \texttt{[CLS]} en el último bloque (promedio de cabezas) para 5 imágenes de prueba (columnas); cada fila es un modelo.}
 \label{fig:attn}
 \end{figure}
-\textit{Cómo leerla:} cada cuadro de la matriz $8\times8$ es un parche de $4\times4$ píxeles; más brillante = más atención del \texttt{[CLS]}, el token que decide la clase. Si cae sobre el objeto, el modelo parece usar la zona correcta; si se reparte uniforme o se pega a un borde para todas las imágenes, usa algo menos específico de la imagen. \textit{Cautela:} la atención es una pista de dónde mira el modelo, no una explicación de su decisión. En las filas denso, ticket y rewinding la atención se reparte por distintas zonas; en el control aleatorio (misma máscara que el ticket, otra inicialización) se concentra en la parte inferior de las 5 imágenes.
+\textit{Cómo leerla:} cada cuadro de la matriz $8\times8$ es un parche de $4\times4$ píxeles; más brillante = más atención del \texttt{[CLS]}, el token que decide la clase. \textit{Cautela importante:} esto describe \textit{dónde pone peso la atención}, no \textit{qué usa el modelo para decidir}; la atención no es una explicación (Jain y Wallace, 2019) y aquí se midió: su correlación con la oclusión es $\approx0$ (Figura~\ref{fig:vitocc}). Los mapas son visiblemente distintos entre modelos, pero no se concluye nada causal de eso.
 
 \begin{figure}[H]
 \centering
@@ -405,7 +427,18 @@ Se inspeccionaron los checkpoints de 05 a 11.6\% de los pesos (ronda 5). Las fig
 \caption{Atención del \texttt{[CLS]} sobre tres imágenes de prueba, con predicción de cada modelo (11.6\% de los pesos). \textbf{Las imágenes están elegidas}: son 3 de las 140 (entre las primeras 1{,}500 de prueba) en las que denso, ticket y rewinding aciertan y el control aleatorio falla; no son representativas del conjunto de prueba.}
 \label{fig:vitattn}
 \end{figure}
-\textit{Cómo leerla y qué no se puede concluir:} brillante = el \texttt{[CLS]} mira más ese parche. En estas imágenes denso, ticket y rewinding concentran la atención sobre el objeto y aciertan, mientras que el control (misma máscara que el ticket, otra inicialización) mira hacia abajo o el fondo y falla. Como el criterio de selección fue justamente que el control falle, esta figura ilustra el patrón pero no mide qué tan frecuente es; la medición es la accuracy por clase y la accuracy global (Tabla~\ref{tab:vitlong}).
+\textit{Cómo leerla y qué no se puede concluir:} brillante = el \texttt{[CLS]} mira más ese parche. En estas imágenes los mapas del control (misma máscara que el ticket, otra inicialización) se ven distintos y apuntan hacia abajo o el fondo, y el control falla. Como el criterio de selección fue justamente que el control falle, la figura solo ilustra los mapas; no mide qué tan frecuente es ni sirve para explicar el fallo, como muestra la figura siguiente. La medición de qué tan bien funcionan los modelos es la accuracy por clase y la global (Tabla~\ref{tab:vitlong}).
+
+\paragraph{¿La atención explica? Atención contra oclusión.} Para comprobar si el mapa de atención dice qué partes de la imagen usa el modelo, se compara con una medida causal simple: tapar cada bloque de la imagen con su color medio y medir cuánto baja la probabilidad de la clase correcta (oclusión). Si la atención explicara la decisión, los bloques con más atención deberían ser los que más probabilidad quitan al taparse.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{vit_occlusion.pdf}
+\caption{Atención del \texttt{[CLS]} y oclusión de bloques de $8\times8$ píxeles (amarillo = al taparlo baja más la probabilidad de la clase correcta), para el denso, el ticket y el control aleatorio, con 11.6\% de los pesos. Mismas 3 imágenes elegidas de la figura anterior.}
+\label{fig:vitocc}
+\end{figure}
+
+\textit{Resultado.} La correlación de Spearman entre atención y oclusión, promediada sobre las primeras 150 imágenes de prueba, es $\approx 0$ en los cuatro modelos: 0.05 (denso), 0.06 (ticket), 0.03 (rewinding) y 0.12 (aleatorio) con bloques de $8\times8$ (con parches de $4\times4$: 0.01, 0.03, 0.01, 0.07). Usar \textit{attention rollout} en lugar de la atención del último bloque tampoco ayuda (0.04--0.09). En el avión, por ejemplo, la atención se concentra en el ala pero la oclusión indica que el modelo depende más de la esquina inferior derecha. \textbf{Conclusión: en estos modelos la atención cruda del \texttt{[CLS]} no predice qué partes de la imagen necesitan, así que los mapas de atención se presentan como descripción y no como explicación.} Limitaciones: 150 imágenes, oclusión con color medio (puede introducir artefactos) y una sola corrida; los números salen de \texttt{results/attention\_vs\_occlusion.json}.
 
 \paragraph{Entropía de la atención.}
 \begin{figure}[H]
@@ -426,7 +459,7 @@ Se inspeccionaron los checkpoints de 05 a 11.6\% de los pesos (ronda 5). Las fig
 \textit{Cómo leerla:} una barra el doble de alta es un gradiente dos veces mayor; se compara la misma capa entre modelos, no capas distintas entre sí. El rewinding arranca con normas menores en las capas internas que el ticket (por ejemplo \texttt{qkv}: 0.10 frente a 0.29) y el control aleatorio queda cerca del ticket; en \texttt{head} las normas son 1.16 (ticket), 0.61 (rewinding) y 1.21 (aleatorio).
 
 \begin{borrador}
-\textbf{\texttt{head} y \texttt{patch\_embed} conservan más pesos.} Con poda global se elimina el 35\% de menor magnitud \textit{de toda la red}, así que sobreviven más las capas con pesos grandes. \texttt{head} y \texttt{patch\_embed} son pequeñas y están en los extremos de la red, donde no hay la redundancia de los seis bloques del medio; es el mismo patrón que en la CNN global, donde la primera convolución conserva 88\%. Es una explicación plausible, no probada; se confirmaría mirando la distribución de magnitudes por capa. \textbf{Atención del control aleatorio abajo.} Comparte la máscara con el ticket y solo cambia los valores iniciales: la inicialización (o el camino de entrenamiento que induce) influye en dónde mira la red, no solo la estructura; con 5 imágenes y una corrida es una observación, no un resultado. \textbf{Rewinding con gradientes menores.} Desde la época 5 los pesos ya salieron del arranque más abrupto; es coherente con que sea el final del warmup, pero no se midió si eso \textit{causa} la mejora a baja densidad. \textbf{Clases.} El ticket queda dentro del ruido en la mayoría de las clases, así que la ventaja no viene de una sola clase, aunque con 1,000 imágenes por clase tampoco se puede afirmar que sea pareja.
+\textbf{\texttt{head} y \texttt{patch\_embed} conservan más pesos.} Con poda global se elimina el 35\% de menor magnitud \textit{de toda la red}, así que sobreviven más las capas con pesos grandes. \texttt{head} y \texttt{patch\_embed} son pequeñas y están en los extremos de la red, donde no hay la redundancia de los seis bloques del medio; es el mismo patrón que en la CNN global, donde la primera convolución conserva 88\%. Es una explicación plausible, no probada; se confirmaría mirando la distribución de magnitudes por capa. \textbf{Atención del control aleatorio abajo.} Los mapas del control (misma máscara, otra inicialización) son distintos a los del ticket, pero como la atención no se correlaciona con la oclusión no se puede decir que el control falle \textit{porque} mira otra zona; solo se puede decir que la inicialización cambia los mapas. \textbf{Rewinding con gradientes menores.} Desde la época 5 los pesos ya salieron del arranque más abrupto; es coherente con que sea el final del warmup, pero no se midió si eso \textit{causa} la mejora a baja densidad. \textbf{Clases.} El ticket queda dentro del ruido en la mayoría de las clases, así que la ventaja no viene de una sola clase, aunque con 1,000 imágenes por clase tampoco se puede afirmar que sea pareja.
 \end{borrador}
 
 \subsection{Incertidumbre}
@@ -437,7 +470,7 @@ Una sola semilla por experimento y 10,000 imágenes de prueba. El intervalo bino
 \subsection{Qué dicen los resultados sobre cada hipótesis}
 \begin{table}[H]
 \centering\small
-\begin{tabular}{@{}lp{0.2\linewidth}p{0.55\linewidth}@{}}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.24\linewidth}>{\raggedright\arraybackslash}p{0.16\linewidth}Y@{}}
 \toprule
 Hipótesis & Veredicto & Base \\
 \midrule
@@ -447,7 +480,7 @@ H2 warmup $\approx$ rewind & \textbf{compatible, no probada} & patrón observado
 H3a global $>$ por capa (CNN) & \textbf{apoyada} & 53.0\% $\to$ 75.7\% a 10.7\%; máscaras sin filtros ni neuronas vacíos; los pesos de las capas pequeñas son mucho mayores (Fig.~\ref{fig:mag}); una sola corrida \\
 H3b redes grandes necesitan global & \textbf{consistente, no probada} & solo la CNN tiene ambas variantes; el MLP funciona por capa; ResNet y ViT nunca se podaron por capa \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \caption{Estado de las hipótesis.}
 \end{table}
 
@@ -479,7 +512,7 @@ Las preguntas de esta subsección y sus borradores de respuesta fueron generadas
 \item \textit{[5] dice que estos tickets son difíciles en ViTs. ¿Qué condiciones del recipe explican la diferencia?} \textbf{Borrador:} \cite{shen2023dlth} reporta DeiT-Small en ImageNet; aquí el ViT es pequeño (1.8M pesos), con aumento fuerte y poda global, en CIFAR-10. No se pueden separar esos factores con los datos; presentarlo con reserva.
 \item \textit{El colapso de la CNN a 10.7\% coincide con filtros y neuronas vacíos. ¿Sería evitable con poda global?} \textbf{Respondida con 02b:} sí, el ticket pasa de 53.0\% a 75.7\% sin filtros ni neuronas vacíos. Queda abierto si es la poda global en sí o que la primera convolución conserve más pesos; se separaría fijando un mínimo por capa.
 \item \textit{¿Una capa con 7 de 64 filtros vacíos es un problema de capacidad o solo desperdicio de pesos?} \textbf{Borrador:} es capacidad perdida (esas salidas son constantes), y se suma a que 102 de 256 neuronas ocultas no llegan a la salida; con 10.7\% de los pesos esa red perdía capacidad real. Probar un mínimo de pesos por filtro lo confirmaría.
-\item \textit{¿Por qué la atención del control aleatorio se concentra abajo si comparte la máscara con el ticket?} \textbf{Borrador:} mismo patrón de conexiones, otra inicialización, otro lugar donde mira la red: la inicialización influye en qué solución encuentra el entrenamiento, no solo la estructura. Es una observación sobre 5 imágenes de una corrida.
+\item \textit{¿Se puede usar la atención del control aleatorio para explicar por qué falla, si comparte la máscara con el ticket?} \textbf{Experimento:} atención contra oclusión (hecho, Sección~6.6). \textbf{Borrador:} no con estos datos: los mapas del control son distintos, pero la atención cruda tiene correlación $\approx0$ con la oclusión en todos los modelos, así que no indica qué partes de la imagen usan. Lo que sí se puede decir es que la inicialización cambia los mapas.
 \item \textit{¿Qué tanto se parecen las máscaras del ticket y del rewinding?} \textbf{Experimento:} IoU de \texttt{06\_inspection} contra el IoU esperado entre dos máscaras aleatorias de la misma densidad $d$, que es $d/(2-d)$. \textbf{Borrador:} si es claramente mayor, ambos métodos redescubren parte de la misma estructura; si es bajo y ambos funcionan, hay muchos tickets distintos.
 \item \textit{Con una sola semilla y $\sim$10,000 imágenes de prueba, ¿qué diferencias son creíbles?} \textbf{Borrador:} ver Sección~6.7. Ticket frente a aleatorio, ticket frente a denso a 27.5\% y el colapso de la CNN superan el intervalo binomial; ticket frente a denso a 7.5\% no, y el ruido entre semillas no se midió.
 \item \textit{¿Cómo afecta que la poda sea global en unos modelos y por capa en otros a la comparación entre arquitecturas?} \textbf{Borrador:} no es un detalle (el resultado de la CNN cambió). Lo limpio sería repetir cada arquitectura con ambos tipos de poda.
@@ -491,7 +524,7 @@ Las preguntas de esta subsección y sus borradores de respuesta fueron generadas
     \item \textbf{Existen tickets en las cuatro arquitecturas.} En el MLP, la CNN y el ViT el ticket desde $\theta_0$ iguala o supera a la red densa y al control; en la ResNet solo con rewinding a la época 1. El ViT de 100 épocas lo confirma con un baseline mejor (86.0\%).
     \item \textbf{La necesidad de rebobinar depende de la arquitectura \textit{y} del recipe de entrenamiento}, y con los datos actuales no se puede separar un efecto del otro. Es compatible con que el warmup cumpla el papel del rewinding (H2), pero esa hipótesis solo se observó.
     \item \textbf{La forma de podar cambia el resultado.} Con poda por capa, el ticket de la CNN colapsa con 10.7\% de los pesos; con poda global no (75.7\% frente a 53.0\%). Las máscaras y el tamaño de los pesos muestran por qué: las capas pequeñas (conv1, fc3) tienen los pesos más grandes y la poda por capa las vacía al exigirles perder lo mismo que la capa enorme fc1. Que las redes más grandes requieran poda global es consistente con esto, pero solo se comparó en la CNN.
-    \item \textbf{El ViT es donde más se profundizó:} el ticket supera a la red densa hasta $\sim$12\% de los pesos, el rewinding ayuda solo con poca densidad, y la inspección muestra que \texttt{head} y \texttt{patch\_embed} conservan más pesos y que la atención del control aleatorio difiere de la del ticket.
+    \item \textbf{El ViT es donde más se profundizó:} el ticket supera a la red densa hasta $\sim$12\% de los pesos, el rewinding ayuda solo con poca densidad, y la inspección muestra que \texttt{head} y \texttt{patch\_embed} conservan más pesos y que la atención cruda del \texttt{[CLS]} no es un buen explicador de qué parches usa el modelo (correlación $\approx0$ con oclusión).
     \item \textbf{Alcance y honestidad de los datos:} una semilla por experimento; diferencias de $\sim$1 punto o menos son ruido.
 \end{enumerate}
 
@@ -510,7 +543,7 @@ Las preguntas de esta subsección y sus borradores de respuesta fueron generadas
 \section{Desviaciones respecto a las fuentes}\label{app:desv}
 \begin{table}[H]
 \centering\footnotesize
-\begin{tabular}{@{}p{0.2\linewidth}p{0.3\linewidth}p{0.4\linewidth}@{}}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.2\linewidth}>{\raggedright\arraybackslash}p{0.3\linewidth}>{\raggedright\arraybackslash}p{0.4\linewidth}@{}}
 \toprule
 Elemento & Fuente & Este proyecto \\
 \midrule

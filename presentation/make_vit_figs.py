@@ -132,3 +132,99 @@ fig.savefig(OUT / "vit_attn.png", dpi=190)
 if LIGHT: fig.savefig(OUT / "vit_attn.pdf")
 plt.close(fig)
 print("listo")
+
+
+# ------------------------------------------------------------------ atención vs. oclusión (¿la atención explica?)
+import json
+
+def spearman(a, b):
+    ra, rb = np.argsort(np.argsort(a)).astype(float), np.argsort(np.argsort(b)).astype(float)
+    return float(np.corrcoef(ra, rb)[0, 1])
+
+
+def norm(x):
+    return (x - mean) / std
+
+
+def occlusion(m, x, y, block):
+    """Caída de la probabilidad de la clase y al tapar cada bloque con el color medio de la imagen."""
+    g = 32 // block
+    with torch.no_grad():
+        base = torch.softmax(m(norm(x)[None]), 1)[0, y].item()
+        xs = []
+        for r in range(g):
+            for q in range(g):
+                z = x.clone()
+                z[:, r * block:(r + 1) * block, q * block:(q + 1) * block] = x.mean((1, 2), keepdim=True)
+                xs.append(norm(z))
+        p = torch.softmax(m(torch.stack(xs)), 1)[:, y]
+    return (base - p).reshape(g, g).numpy()
+
+
+def cls_attention(m, x):
+    with torch.no_grad():
+        return m.all_attention(norm(x)[None])[-1][0, :, 0, 1:].mean(0).reshape(8, 8).numpy()
+
+
+def rollout(m, x):
+    with torch.no_grad():
+        atts = m.all_attention(norm(x)[None])
+    R = torch.eye(65)
+    for A in atts:
+        a = 0.5 * A[0].mean(0) + 0.5 * torch.eye(65)
+        R = (a / a.sum(-1, keepdim=True)) @ R
+    return R[0, 1:].reshape(8, 8).numpy()
+
+
+NC = 150
+out = {"n_imagenes": NC, "nota": "Spearman entre la atención del [CLS] (o rollout) y la caída de probabilidad de la clase correcta al ocluir; primeras imágenes de prueba."}
+for n, m in models.items():
+    r4, r8, rr = [], [], []
+    for i in range(NC):
+        o4 = occlusion(m, X[i], int(Y[i]), 4)
+        o8 = occlusion(m, X[i], int(Y[i]), 8)
+        a = cls_attention(m, X[i])
+        if o4.std() > 1e-6:
+            r4.append(spearman(a.flatten(), o4.flatten()))
+            rr.append(spearman(rollout(m, X[i]).flatten(), o4.flatten()))
+        if o8.std() > 1e-6:
+            r8.append(spearman(a.reshape(4, 2, 4, 2).sum((1, 3)).flatten(), o8.flatten()))
+    out[n] = {"atencion_vs_oclusion_4x4": float(np.mean(r4)), "atencion_vs_oclusion_8x8": float(np.mean(r8)), "rollout_vs_oclusion_4x4": float(np.mean(rr))}
+    print(n, {k: round(v, 3) for k, v in out[n].items()})
+(root / "results").mkdir(exist_ok=True)
+(root / "results" / "attention_vs_occlusion.json").write_text(json.dumps(out, indent=1, ensure_ascii=False))
+
+# figura: para 3 imágenes, atención y oclusión de denso, ticket y aleatorio lado a lado
+show = ["denso", "ticket", "aleatorio"]
+fig, axes = plt.subplots(len(chosen), 1 + 2 * len(show), figsize=(12.5, 2.05 * len(chosen)))
+for r, i in enumerate(chosen):
+    img = X[i].permute(1, 2, 0)
+    axes[r, 0].imshow(img, interpolation="nearest")
+    axes[r, 0].set_title("imagen" if r == 0 else "", fontsize=9, color=INK)
+    axes[r, 0].set_ylabel(names[int(Y[i])], color=INK)
+    k = 1
+    for n in show:
+        a = cls_attention(models[n], X[i])
+        o = occlusion(models[n], X[i], int(Y[i]), 8)
+        p = int(models[n](norm(X[i])[None]).argmax(1))
+        good = p == int(Y[i])
+        for arr, kind, cm in ((a, "atención", "inferno"), (o, "oclusión", "viridis")):
+            ax = axes[r, k]
+            ax.imshow(img, interpolation="nearest")
+            ax.imshow(arr, extent=(-0.5, 31.5, 31.5, -0.5), cmap=cm, alpha=0.62, interpolation="bilinear" if kind == "atención" else "nearest")
+            ax.set_title((f"{n}: {kind}\n" if r == 0 else "") + (f"{'✓' if good else '✗'} {names[p]}" if kind == "atención" else ""), fontsize=8.5, color=(GREEN if good else ORANGE) if kind == "atención" else INK)
+            k += 1
+for ax in axes.flat:
+    ax.set_xticks([])
+    ax.set_yticks([])
+    for sp in ax.spines.values():
+        sp.set_visible(False)
+cm_txt = ", ".join(f"{n} {out[n]['atencion_vs_oclusion_8x8']:.2f}" for n in show)
+fig.suptitle("¿La atención explica? Atención del [CLS] (inferno) y oclusión (verde-amarillo = cuánto baja la probabilidad de la clase correcta al taparlo)\n"
+             f"Correlación de Spearman atención vs. oclusión en {NC} imágenes ≈ 0 en todos los modelos ({cm_txt})", fontsize=9, color=MUTED, y=0.995)
+fig.tight_layout(rect=(0, 0, 1, 0.93))
+fig.savefig(OUT / "vit_occlusion.png", dpi=190)
+if LIGHT:
+    fig.savefig(OUT / "vit_occlusion.pdf")
+plt.close(fig)
+print("figura de oclusión lista")

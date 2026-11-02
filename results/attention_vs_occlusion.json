@@ -1,0 +1,24 @@
+{
+ "n_imagenes": 150,
+ "nota": "Spearman entre la atención del [CLS] (o rollout) y la caída de probabilidad de la clase correcta al ocluir; primeras imágenes de prueba.",
+ "denso": {
+  "atencion_vs_oclusion_4x4": 0.011739926739926737,
+  "atencion_vs_oclusion_8x8": 0.04615686274509803,
+  "rollout_vs_oclusion_4x4": 0.06383821733821733
+ },
+ "ticket": {
+  "atencion_vs_oclusion_4x4": 0.02694780219780219,
+  "atencion_vs_oclusion_8x8": 0.0567843137254902,
+  "rollout_vs_oclusion_4x4": 0.09155921855921854
+ },
+ "rewinding": {
+  "atencion_vs_oclusion_4x4": 0.011424297924297925,
+  "atencion_vs_oclusion_8x8": 0.029901960784313727,
+  "rollout_vs_oclusion_4x4": 0.05232264957264957
+ },
+ "aleatorio": {
+  "atencion_vs_oclusion_4x4": 0.07446886446886446,
+  "atencion_vs_oclusion_8x8": 0.11570588235294117,
+  "rollout_vs_oclusion_4x4": 0.0394532967032967
+ }
+}

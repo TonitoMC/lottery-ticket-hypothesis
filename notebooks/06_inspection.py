@@ -809,7 +809,7 @@ def _(mo):
     ## 3. Mapas de atención
     Atención del token `[CLS]` hacia los 64 parches (8x8) en el **último bloque**, promediada sobre las cabezas, para las 10 imágenes fijas. Cada fila es un modelo distinto al mismo porcentaje de pesos. El `random` tiene la misma máscara que el ticket pero otra inicialización, así que si se ve distinto es por la inicialización.
 
-    **Cómo leerlo:** más brillante = el `[CLS]` mira más ese parche (cada cuadro es de 4x4 píxeles). Si la atención cae sobre el objeto (cabeza, cuerpo, alas) el modelo parece usar la zona correcta; si se reparte uniforme, o se pega siempre al mismo borde para todas las imágenes, está usando algo menos específico de la imagen. La atención es una pista de dónde mira el modelo, **no** una explicación de por qué decide así.
+    **Cómo leerlo:** más brillante = el `[CLS]` mira más ese parche (cada cuadro es de 4x4 píxeles). Si la atención cae sobre el objeto (cabeza, cuerpo, alas) el modelo parece usar la zona correcta; si se reparte uniforme, o se pega siempre al mismo borde para todas las imágenes, está usando algo menos específico de la imagen. La atención describe dónde pone peso el `[CLS]`, **no** explica por qué decide así: medida contra oclusión (tapar bloques y ver cuánto baja la probabilidad), su correlación de Spearman es ≈ 0 en denso, ticket, rewinding y aleatorio (`results/attention_vs_occlusion.json`).
     """)
     return
 
