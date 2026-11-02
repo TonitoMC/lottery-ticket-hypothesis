@@ -15,7 +15,7 @@
 \usepackage[skip={0.6em plus 0.2em}]{parskip}
 \usepackage{csquotes}
 \usepackage{adjustbox}
-\usepackage{array,tabularx}
+\usepackage{array,tabularx,longtable}
 \usepackage{pgfplots}
 \usepackage{graphicx}
 \usepackage{float}
@@ -45,10 +45,6 @@
 
 \graphicspath{{figures/}}
 
-% Pendiente del autor (naranja), borrador de interpretación (azul) y material generado por IA (morado)
-\newtcolorbox{pendiente}{colback=orange!8,colframe=orange!70!black,title={Por completar},fonttitle=\bfseries\small,boxrule=0.6pt,left=4pt,right=4pt,top=2pt,bottom=2pt}
-\newtcolorbox{borrador}{colback=blue!4,colframe=blue!40!black,title={Borrador de interpretación (editar)},fonttitle=\bfseries\small,boxrule=0.6pt,left=4pt,right=4pt,top=2pt,bottom=2pt}
-\newtcolorbox{generadoia}{colback=violet!5,colframe=violet!60!black,title={Generado con IA},fonttitle=\bfseries\small,boxrule=0.6pt,left=4pt,right=4pt,top=2pt,bottom=2pt}
 
 \title{\textbf{Lottery Ticket Hypothesis}\\[0.4em]
   \textbf{\large Rewinding y alcance de la poda en MLP, CNN, ResNet y ViT}\\[1.2em]
@@ -56,8 +52,8 @@
   \large Proyecto Final}
 \author{José Antonio Mérida Castejón\\[0.4em]
   \small Repositorio: \url{https://github.com/TonitoMC/lottery-ticket-hypothesis}\\
-  \small Video: ENLACE\_YOUTUBE}
-\date{\today}
+  \small Video: \url{https://youtu.be/ow74cZd0Ldg}}
+\date{2 de noviembre de 2026}
 
 \begin{document}
 \maketitle
@@ -247,7 +243,7 @@ Entorno gestionado con \texttt{uv} (\texttt{uv.lock}); una sola semilla por expe
 \end{itemize}
 
 \subsection{Uso de IA generativa: prompts y evolución de la idea}
-\textit{Nota sobre los prompts: no se conserva un registro textual completo de la conversación con la IA. Lo que sigue son resúmenes de las interacciones más relevantes, redactados a partir de lo ocurrido en el proyecto; las frases entre comillas son citas textuales.}
+\textit{Nota sobre los prompts: no se conserva un registro textual completo de la conversación con la IA. Lo que sigue son resúmenes de las interacciones más relevantes, redactados a partir de lo ocurrido en el proyecto; las frases entre comillas son citas textuales (en inglés, como se escribieron).}
 
 \paragraph{Estrategia.} Primero se escribió a mano una ``implementación canónica'' (modelos, ciclos de entrenamiento y evaluación, y \texttt{lth.py}) para el MLP y la CNN. Con ella como referencia, se le pidió a la IA conectar \texttt{lth.py} al resto de los cuadernos, ejecutar los experimentos y agregar los experimentos extra. Funcionó porque la IA tenía un patrón concreto que copiar (misma estructura de cuaderno, mismas funciones de poda, mismas métricas) y porque cada resultado se podía comparar contra la implementación a mano. Los problemas aparecieron cuando se le pidió algo sin esa referencia o cuando agregó cosas no pedidas.
 
@@ -255,7 +251,9 @@ Entorno gestionado con \texttt{uv} (\texttt{uv.lock}); una sola semilla por expe
 
 \textbf{Mío:} el tema, la pregunta y las hipótesis; los cuatro modelos (\texttt{nn.Module}); los ciclos de entrenamiento y evaluación; el código de poda \texttt{lth.py} (máscaras, IMP, control aleatorio); y ejecutar y verificar los experimentos. 
 
-\textbf{De la IA (Claude, mediante Claude Code):} el guardado de pesos y máscaras (checkpoints); la implementación de la mayor parte de los cuadernos de experimentos, cuyas partes centrales el autor sabía correctas y revisó; las visualizaciones, los diagramas de arquitectura y las tablas automáticas; la revisión de código e hiperparámetros contra las fuentes; borradores de interpretación; y la estructura del informe y de la presentación.
+\textbf{De la IA (Claude, mediante Claude Code):} el guardado de pesos y máscaras (checkpoints); la implementación de la mayor parte de los cuadernos de experimentos, cuyas partes centrales yo sabía correctas y revisé; las visualizaciones, los diagramas de arquitectura y las tablas automáticas; la revisión de código e hiperparámetros contra las fuentes; borradores de interpretación; y la estructura del informe y de la presentación.
+
+\paragraph{Estructura del informe y cómo se guió a la IA.} El esqueleto de este informe (las secciones que pide el enunciado, el código \LaTeX, los scripts que generan las figuras y tablas, y la estructura de la presentación) lo generó la IA a partir del enunciado y del contexto del proyecto; el tema, las hipótesis y el análisis son míos, y los borradores de texto que escribió la IA los revisé y los contrasté con los datos. Para que la IA se ciñera al experimento y no improvisara fui estricto con la forma: pedí que todos los cuadernos siguieran la misma estructura y las mismas métricas, que toda la lógica de poda viviera en \texttt{lth.py}, que el informe siguiera las secciones del enunciado y que lo no probado se redactara como tal (\textit{compatible, no probada}) en lugar de presentarse como conclusión. Esa estructura obligó a la IA a trabajar sobre el diseño experimental que yo definí, y es la razón por la que la mayoría de los resultados se pudieron comparar contra mi implementación.
 
 \paragraph{Prompts de los que hay registro.}
 \begin{itemize}[nosep]
@@ -264,15 +262,20 @@ Entorno gestionado con \texttt{uv} (\texttt{uv.lock}); una sola semilla por expe
     \item \textit{``ViT longer has to have more epochs + more aggressive data augmentation (Luego de una conversación más larga sobre el experimento como tal)''} $\rightarrow$ experimento 05.
 \end{itemize}
 
-\begin{table}[H]
-\centering\footnotesize
-\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.27\linewidth}>{\raggedright\arraybackslash}p{0.24\linewidth}Y@{}}
+{\footnotesize
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.27\linewidth}>{\raggedright\arraybackslash}p{0.24\linewidth}>{\raggedright\arraybackslash}p{0.43\linewidth}@{}}
+\caption{Historial de prompts relevantes (resumido; lo que va entre comillas es cita, traducida cuando se indica).}\label{tab:prompts}\\
 \toprule
 Prompt (resumen) & Resultado & Evaluación y por qué \\
 \midrule
+\endfirsthead
+\toprule
+Prompt (resumen) & Resultado & Evaluación y por qué \\
+\midrule
+\endhead
 Reescribir los cuadernos 01 y 02 con mejor markdown y documentación, manteniendo la estructura. & Una versión con opciones no pedidas (una variable de entorno para correr en modo rápido, celdas extra) y que ignoraba mi código. & \textbf{No satisfactorio.} La IA agregó complejidad y no siguió las convenciones de \texttt{marimo} (por ejemplo, \texttt{print(model)} en vez de dejar el modelo como última expresión de la celda). Se evaluó comparando contra mi código; se pidió rehacerlo partiendo de él, solo con markdown y partes comunes extraídas. \\
 \midrule
-Mover la lógica de poda a \texttt{lth.py}; los cuadernos solo cargan datos, definen el modelo, entrenan la versión inicial y llaman a \texttt{lth.py}. & Primero las máscaras se pasaban como parámetros y se usaban \textit{hooks} del optimizador; las funciones no se parecían a las mías. & \textbf{Falló al inicio, corregido después de insistir.} ``Los cuadernos quedan: cargar datos, modelo, entrenar versión inicial y guardar pesos; lo de poda y LTH va al archivo compartido''. Se validó revisando que las funciones fueran las mismas que ya tenía y que los cuadernos 01 y 02 quedaran con estructura equivalente. \\
+Mover la lógica de poda a \texttt{lth.py}; los cuadernos solo cargan datos, definen el modelo, entrenan la versión inicial y llaman a \texttt{lth.py}. & Primero las máscaras se pasaban como parámetros y se usaban \textit{hooks} del optimizador; las funciones no se parecían a las mías. & \textbf{Falló al inicio, corregido después de insistir.} ``Los cuadernos quedan: cargar datos, modelo, entrenar versión inicial y guardar pesos; lo de poda y LTH va al archivo compartido'' (traducido del inglés). Se validó revisando que las funciones fueran las mismas que ya tenía y que los cuadernos 01 y 02 quedaran con estructura equivalente. \\
 \midrule
 Agregar el guardado de checkpoints por ronda con el porcentaje de pesos en el nombre. & \texttt{save\_base}, \texttt{save\_round}, \texttt{list\_checkpoints} y el cuaderno de inspección. & \textbf{Satisfactorio.} Es una tarea acotada y fácil de verificar: se cargó un checkpoint y se comprobó que la máscara y el porcentaje coincidieran con lo reportado en las corridas. \\
 \midrule
@@ -284,9 +287,8 @@ Correr la CNN con poda global (02b) para ver si el colapso se debe a la poda por
 \midrule
 Figuras de atención, gradientes y oclusión del ViT, y borradores de interpretación. & Mapas de atención y texto que decía que el control aleatorio ``mira abajo y por eso falla''. & \textbf{Parcialmente erróneo.} La atención no es una explicación (Jain y Wallace, 2019); se midió y su correlación con la oclusión fue $\approx 0$ (0.03 a 0.12). Se reescribió el texto, se marcó que las imágenes son elegidas a mano y se añadió la comparación atención contra oclusión. \\
 \bottomrule
-\end{tabularx}
-\caption{Historial de prompts relevantes (resumido; las comillas son textuales).}
-\end{table}
+\end{longtable}
+}
 
 \paragraph{Evaluación crítica de la IA.} Todos los números que aparecen en el informe vienen de \texttt{results/*.json} o de los checkpoints; al crear la estructura del informe lo redactado con IA se marcó como \textit{borrador} y se contrastó con los datos antes de aceptarlo. Además, se tomó en cuenta que la IA puede dar explicaciones causales con una gran certeza a pesar de que los datos no lo apoyen. Por ejemplo, en algunos puntos había concluido una relación causal cuando el experimento simplemente fue observacional o utilizó los mapas de atención como explicación.
 

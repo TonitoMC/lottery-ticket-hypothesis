@@ -64,7 +64,23 @@ def _():
     import lth
 
     device = "cpu"  # una imagen a la vez: la CPU basta
-    return F, Image, base64, datasets, device, functools, io, json, lth, mo, nn, np, plt, torch, v2
+    return (
+        F,
+        Image,
+        base64,
+        datasets,
+        device,
+        functools,
+        io,
+        json,
+        lth,
+        mo,
+        nn,
+        np,
+        plt,
+        torch,
+        v2,
+    )
 
 
 @app.cell(hide_code=True)
@@ -144,7 +160,7 @@ def _(datasets, torch, v2):
     N_POOL = 1000  # las primeras 1,000 imágenes de prueba sirven para buscar casos interesantes
     X_pool = torch.stack([test_set[i][0] for i in range(N_POOL)])
     Y_pool = torch.tensor(test_set.targets[:N_POOL])
-    return CLASSES, MEAN, N_POOL, STD, X_pool, Y_pool, test_set
+    return CLASSES, MEAN, STD, X_pool, Y_pool, test_set
 
 
 @app.cell(hide_code=True)
@@ -230,7 +246,7 @@ def _(level_pick, mo, mode_pick, model_pick, pool_indices):
 
 
 @app.cell(hide_code=True)
-def _(Image, MEAN, STD, CLASSES, img_pick, io, np, pool, test_set, torch, upload):
+def _(Image, img_pick, io, np, pool, test_set, torch, upload):
     if upload.value:
         _im = Image.open(io.BytesIO(upload.value[0].contents)).convert("RGB")
         _w, _h = _im.size
@@ -248,7 +264,21 @@ def _(Image, MEAN, STD, CLASSES, img_pick, io, np, pool, test_set, torch, upload
 
 
 @app.cell(hide_code=True)
-def _(CLASSES, Image, base64, get_variants, io, level_pick, mo, model_pick, prep, source, torch, truth, x):
+def _(
+    CLASSES,
+    Image,
+    base64,
+    get_variants,
+    io,
+    level_pick,
+    mo,
+    model_pick,
+    prep,
+    source,
+    torch,
+    truth,
+    x,
+):
     variants = get_variants(model_pick.value, level_pick.value)
     _inp = prep(model_pick.value, x).unsqueeze(0)
     with torch.no_grad():
@@ -294,7 +324,7 @@ def _(CLASSES, Image, base64, get_variants, io, level_pick, mo, model_pick, prep
         f'<div style="font-size:12px;opacity:.65;margin-top:10px">Verde = acierta, rojo = falla. Una sola imagen no demuestra nada: lo confiable es la '
         f'accuracy total (10,000 imágenes de prueba) de cada tarjeta.</div>'
     )
-    return card_grid, probs, variants
+    return card_grid, variants
 
 
 @app.cell(hide_code=True)
